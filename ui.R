@@ -52,6 +52,23 @@ ui <- navbarPage(
               @media (max-width:950px){.navbar-nav > li > a{font-size:12px !important;padding:6px 8px !important;}}  /* 小屏幕调整字体 */
               .navbar{display:block !important;overflow:hidden !important;width:100% !important;}  /* 导航栏宽度限制 */
               body{padding-top:70px !important;}  /* 顶部留白 */
+              
+              /* 鼠标悬停时修改标题颜色 */
+              .navbar-brand:hover {
+                color: #00CED1 !important; /* 悬停时标题文字颜色：青蓝色 */
+              }
+              
+              /* 鼠标悬停导航项时的颜色 */
+              .navbar-nav > li > a:hover {
+                color: #00CED1 !important;      /* 悬停文字颜色：青蓝色 */
+                background-color: #2F4F4F !important; /* 悬停背景颜色：深青灰色 */
+              }
+              
+              /* 设置激活选项卡的背景颜色 */
+              .nav-pills > li.active > a {
+                background-color: #2F4F4F !important; /* 激活选项卡背景颜色：深青灰色 */
+              }
+              
               .layout-container{display:flex;flex-direction:row;height:100%;width:100%;overflow:visible;}  /* Flexbox 布局容器 */
               .sticky-sidebar{position:sticky;top:70px;z-index:900;flex:0 0 auto;width:380px;min-width:280px;max-width:580px;height:calc(100vh - 70px);overflow-y:auto;border-right:1px solid #e0e0e0;border-radius:8px;padding:20px;background-color:#f9f9f9;transition:width 0.2s ease;}  /* 侧边栏样式 */
               .main-panel{flex-grow:1;overflow:auto;padding:20px;padding-top:0;background-color:#ffffff;transition:width 0.2s ease;}  /* 主面板样式 */
