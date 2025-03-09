@@ -53,9 +53,9 @@ ui <- navbarPage(
               .navbar{display:block !important;overflow:hidden !important;width:100% !important; background-color: #3C2F2F !important;}  /* 导航栏宽度限制 */
               body{padding-top:70px !important;}  /* 顶部留白 */
               
-              .navbar-brand:hover {color: #E89B5F !important; /* 悬停时标题文字颜色：青蓝色 */}
-              .navbar-nav > li > a:hover { color: #E89B5F !important; /* 悬停文字颜色：青蓝色 */ background-color: #3C2F2F !important; /* 悬停背景颜色：深青灰色 */}
-              .nav-pills > li.active > a {background-color: #3C2F2F !important; /* 激活选项卡背景颜色：深青灰色 */}
+              .navbar-brand:hover {color: #E89B5F !important; /* 悬停时标题文字颜色：浅焦糖棕 */}
+              .navbar-nav > li > a:hover { color: #E89B5F !important; /* 悬停文字颜色：浅焦糖棕 */ background-color: #3C2F2F !important; /* 悬停背景颜色：深咖啡色 */}
+              .nav-pills > li.active > a {background-color: #3C2F2F !important; /* 激活选项卡背景颜色：深咖啡色 */}
               
               .layout-container{display:flex;flex-direction:row;height:100%;width:100%;overflow:visible;}  /* Flexbox 布局容器 */
               .sticky-sidebar{position:sticky;top:70px;z-index:900;flex:0 0 auto;width:380px;min-width:280px;max-width:580px;height:calc(100vh - 70px);overflow-y:auto;border-right:1px solid #e0e0e0;border-radius:8px;padding:20px;background-color:#f9f9f9;transition:width 0.2s ease;}  /* 侧边栏样式 */
