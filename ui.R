@@ -50,7 +50,7 @@ ui <- navbarPage(
               .navbar-nav::-webkit-scrollbar{height:6px;} .navbar-nav::-webkit-scrollbar-thumb{background:#007BFF;border-radius:10px;}  /* 滚动条样式 */
               @media (max-width:1470px){.navbar-nav{overflow-x:scroll !important;}.navbar-brand{display:none !important;}}  /* 小屏幕隐藏标题 */
               @media (max-width:950px){.navbar-nav > li > a{font-size:12px !important;padding:6px 8px !important;}}  /* 小屏幕调整字体 */
-              .navbar{display:block !important;overflow:hidden !important;width:100% !important;}  /* 导航栏宽度限制 */
+              .navbar{display:block !important;overflow:hidden !important;width:100% !important; background-color: #2F4F4F !important;}  /* 导航栏宽度限制 */
               body{padding-top:70px !important;}  /* 顶部留白 */
               
               /* 鼠标悬停时修改标题颜色 */
