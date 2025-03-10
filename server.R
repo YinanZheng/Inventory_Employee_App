@@ -691,6 +691,26 @@ server <- function(input, output, session) {
   work_rates <- reactiveVal(NULL)
   clock_records <- reactiveVal(NULL)
   
+  # 定义结束工作的逻辑
+  finish_work <- function(ongoing_record, employee) {
+    record_id <- ongoing_record$RecordID
+    clock_out_time <- Sys.time()
+    hours_worked <- as.numeric(difftime(clock_out_time, ongoing_record$ClockInTime, units = "hours"))
+    hourly_rate <- work_rates() %>% 
+      filter(EmployeeName == employee, WorkType == ongoing_record$WorkType) %>% 
+      pull(HourlyRate)
+    total_pay <- round(hours_worked * hourly_rate, 2)
+    
+    dbExecute(
+      con,
+      "UPDATE clock_records SET ClockOutTime = ?, TotalPay = ? WHERE RecordID = ?",
+      params = list(clock_out_time, total_pay, record_id)
+    )
+    
+    clock_records(dbGetQuery(con, "SELECT * FROM clock_records ORDER BY CreatedAt DESC"))
+    showNotification(paste("工作结束！时长:", round(hours_worked, 2), "小时，薪酬:", total_pay, "元"), type = "message")
+  }
+  
   # 初始化时加载数据
   observe({
     tryCatch({
@@ -809,7 +829,7 @@ server <- function(input, output, session) {
             filter(EmployeeName == employee, WorkType == work_type) %>% 
             pull(HourlyRate)
           
-          if (length(hourly_rate) == 0 | hourly_rate == 0) {
+          if (length(hourly_rate) == 0 || hourly_rate == 0) {
             showNotification("该员工此工作类型的薪酬未设置，请联系管理员！", type = "error")
             return()
           }
@@ -824,26 +844,70 @@ server <- function(input, output, session) {
           showNotification("工作开始！", type = "message")
         } else {
           # 下班打卡
-          record_id <- ongoing_record$RecordID
-          clock_out_time <- Sys.time()
-          hours_worked <- as.numeric(difftime(clock_out_time, ongoing_record$ClockInTime, units = "hours"))
-          hourly_rate <- work_rates() %>% 
-            filter(EmployeeName == employee, WorkType == ongoing_record$WorkType) %>% 
-            pull(HourlyRate)
-          total_pay <- round(hours_worked * hourly_rate, 2)
-          
-          dbExecute(
-            con,
-            "UPDATE clock_records SET ClockOutTime = ?, TotalPay = ? WHERE RecordID = ?",
-            params = list(clock_out_time, total_pay, record_id)
-          )
-          
-          clock_records(dbGetQuery(con, "SELECT * FROM clock_records ORDER BY CreatedAt DESC"))
-          showNotification(paste("工作结束！时长:", round(hours_worked, 2), "小时，薪酬:", total_pay, "元"), type = "message")
+          if (work_type == "直播") {
+            # 弹出销售额输入模态框
+            showModal(modalDialog(
+              title = "输入总销售额",
+              numericInput("sales_amount", "请输入本次直播的总销售额 (¥):", value = 0, min = 0, step = 0.01, width = "100%"),
+              footer = tagList(
+                modalButton("取消"),
+                actionButton("confirm_sales_amount", "确认", class = "btn-success")
+              )
+            ))
+          } else {
+            # 非直播直接结束工作
+            finish_work(ongoing_record, employee)
+          }
         }
       })
     }, error = function(e) {
       showNotification(paste("打卡失败:", e$message), type = "error")
+    })
+  })
+  
+  # 打卡结束
+  observeEvent(input$confirm_sales_amount, {
+    req(input$sales_amount)
+    
+    # 获取销售额输入值
+    sales_amount <- as.numeric(input$sales_amount)
+    if (is.na(sales_amount) || sales_amount < 0) {
+      showNotification("请输入有效的销售额！", type = "error")
+      return()
+    }
+    
+    # 更新数据库，结束工作
+    ongoing_record <- clock_records() %>%
+      filter(EmployeeName == input$employee_name, !is.na(ClockInTime), is.na(ClockOutTime)) %>%
+      slice(1)
+    
+    if (nrow(ongoing_record) == 0) {
+      showNotification("未找到正在进行的工作记录！", type = "error")
+      removeModal()
+      return()
+    }
+    
+    record_id <- ongoing_record$RecordID
+    clock_out_time <- Sys.time()
+    hours_worked <- as.numeric(difftime(clock_out_time, ongoing_record$ClockInTime, units = "hours"))
+    hourly_rate <- work_rates() %>% 
+      filter(EmployeeName == input$employee_name, WorkType == ongoing_record$WorkType) %>% 
+      pull(HourlyRate)
+    total_pay <- round(hours_worked * hourly_rate, 2)
+    
+    tryCatch({
+      dbExecute(
+        con,
+        "UPDATE clock_records SET ClockOutTime = ?, TotalPay = ?, SalesAmount = ? WHERE RecordID = ?",
+        params = list(clock_out_time, total_pay, sales_amount, record_id)
+      )
+      
+      clock_records(dbGetQuery(con, "SELECT * FROM clock_records ORDER BY CreatedAt DESC"))
+      showNotification(paste("工作结束！时长:", round(hours_worked, 2), "小时，薪酬:", total_pay, "元，总销售额:", sales_amount, "元"), type = "message")
+      removeModal()
+    }, error = function(e) {
+      showNotification(paste("更新失败:", e$message), type = "error")
+      removeModal()
     })
   })
   
@@ -873,6 +937,18 @@ server <- function(input, output, session) {
       )
     } else {
       tags$p("未开始工作", style = "font-size: 24px; color: #666; text-align: center; margin-top: 20px;")
+    }
+  })
+  
+  # 销售额输入框
+  observe({
+    req(input$work_type)
+    
+    if (input$work_type == "直播") {
+      shinyjs::show("manual_sales_amount") # 显示销售额输入框
+    } else {
+      shinyjs::hide("manual_sales_amount") # 隐藏销售额输入框
+      updateNumericInput(session, "manual_sales_amount", value = 0) # 重置销售额为 0
     }
   })
   
@@ -910,6 +986,9 @@ server <- function(input, output, session) {
       return()
     }
     
+    # 获取销售额（仅直播工作类型有效）
+    sales_amount <- ifelse(work_type == "直播", as.numeric(input$manual_sales_amount), NA)
+    
     tryCatch({
       dbWithTransaction(con, {
         record_id <- uuid::UUIDgenerate()
@@ -931,12 +1010,27 @@ server <- function(input, output, session) {
         
         dbExecute(
           con,
-          "INSERT INTO clock_records (RecordID, EmployeeName, WorkType, ClockInTime, ClockOutTime, TotalPay) VALUES (?, ?, ?, ?, ?, ?)",
-          params = list(record_id, employee, work_type, clock_in, clock_out, total_pay)
+          if (!is.na(clock_out)) {
+            "INSERT INTO clock_records (RecordID, EmployeeName, WorkType, ClockInTime, ClockOutTime, TotalPay, SalesAmount) VALUES (?, ?, ?, ?, ?, ?, ?)"
+          } else {
+            "INSERT INTO clock_records (RecordID, EmployeeName, WorkType, ClockInTime, SalesAmount) VALUES (?, ?, ?, ?, ?)"
+          },
+          params = if (!is.na(clock_out)) {
+            list(record_id, employee, work_type, clock_in, clock_out, total_pay, sales_amount)
+          } else {
+            list(record_id, employee, work_type, clock_in, sales_amount)
+          }
         )
         
         clock_records(dbGetQuery(con, "SELECT * FROM clock_records ORDER BY CreatedAt DESC"))
         showNotification("手动补录打卡成功！", type = "message")
+        
+        # 重置表单
+        updateDateInput(session, "manual_date_in", value = NULL)
+        updateTimeInput(session, "manual_time_in", value = strptime("09:00", "%H:%M"))
+        updateDateInput(session, "manual_date_out", value = NULL)
+        updateTimeInput(session, "manual_time_out", value = strptime("18:00", "%H:%M"))
+        updateNumericInput(session, "manual_sales_amount", value = 0)
       })
     }, error = function(e) {
       showNotification(paste("手动补录失败:", e$message), type = "error")
@@ -947,10 +1041,8 @@ server <- function(input, output, session) {
   output$today_work_records_table <- renderDT({
     req(clock_records(), input$employee_name)
     
-    # 获取当天日期
     today <- as.Date(Sys.Date())
     
-    # 过滤当天记录，仅显示当前选择的员工
     today_records <- clock_records() %>%
       filter(as.Date(ClockInTime) == today, EmployeeName == input$employee_name) %>%
       left_join(work_rates(), by = c("EmployeeName", "WorkType")) %>%
@@ -958,14 +1050,11 @@ server <- function(input, output, session) {
         ClockInTime = as.character(format(as.POSIXct(ClockInTime, format = "%Y-%m-%d %H:%M:%S", tz = "UTC"), "%Y-%m-%d %H:%M:%S")),
         ClockOutTime = ifelse(is.na(ClockOutTime), "未结束", 
                               as.character(format(as.POSIXct(ClockOutTime, format = "%Y-%m-%d %H:%M:%S", tz = "UTC"), "%Y-%m-%d %H:%M:%S"))),
-        HoursWorked = ifelse(is.na(ClockOutTime) | is.na(ClockInTime) | !grepl("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$", ClockInTime) | 
-                               (!is.na(ClockOutTime) & !grepl("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$", ClockOutTime)),
-                             0,
-                             round(as.numeric(difftime(as.POSIXct(ClockOutTime, format = "%Y-%m-%d %H:%M:%S", tz = "UTC"),
-                                                       as.POSIXct(ClockInTime, format = "%Y-%m-%d %H:%M:%S", tz = "UTC"),
-                                                       units = "hours")), 2)),
+        HoursWorked = ifelse(is.na(ClockOutTime) | is.na(ClockInTime), 0,
+                             round(as.numeric(difftime(as.POSIXct(ClockOutTime), as.POSIXct(ClockInTime), units = "hours")), 2)),
         HourlyRate = round(ifelse(is.na(HourlyRate), 0, HourlyRate), 2),
-        TotalPay = sprintf("¥%.2f", round(ifelse(is.na(TotalPay), 0, TotalPay), 2))
+        TotalPay = sprintf("¥%.2f", round(ifelse(is.na(TotalPay), 0, TotalPay), 2)),
+        SalesAmount = sprintf("¥%.2f", ifelse(is.na(SalesAmount), 0, SalesAmount)) # 销售额格式化
       ) %>%
       select(
         "员工姓名" = EmployeeName,
@@ -974,7 +1063,8 @@ server <- function(input, output, session) {
         "下班时间" = ClockOutTime,
         "工作时长 (小时)" = HoursWorked,
         "时薪 (¥)" = HourlyRate,
-        "总薪酬" = TotalPay
+        "总薪酬 (¥)" = TotalPay,
+        "销售额 ($)" = SalesAmount # 添加销售额列
       )
     
     if (nrow(today_records) == 0) {

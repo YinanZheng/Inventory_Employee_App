@@ -205,6 +205,14 @@ ui <- navbarPage(
                 value = strptime("18:00", "%H:%M"),
                 width = "100%"
               ),
+              numericInput(
+                inputId = "manual_sales_amount",
+                label = "销售额 (仅直播工作类型有效):",
+                value = 0,
+                min = 0,
+                step = 0.01,
+                width = "100%"
+              ),
               actionButton("submit_manual_clock", "提交补录", icon = icon("save"), class = "btn-success", 
                            style = "width: 100%; margin-top: 10px;")
             )
