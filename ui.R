@@ -180,7 +180,7 @@ ui <- navbarPage(
             div(
               class = "card shadow-sm",
               style = "border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: #f9f9f9; margin-top: 20px;",
-              tags$h4("手动补录打卡", style = "color: #28A745; margin-bottom: 10px;"),
+              tags$h4("打卡补录登记", style = "color: #28A745; margin-bottom: 10px;"),
               dateInput(
                 inputId = "manual_date_in",
                 label = "工作开始日期:",
