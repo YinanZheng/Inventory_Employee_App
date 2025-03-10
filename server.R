@@ -53,6 +53,12 @@ server <- function(input, output, session) {
   shelf_items <- reactiveVal(create_empty_shelf_box())
   box_items <- reactiveVal(create_empty_shelf_box())
   
+  # 员工相关
+  employees_data <- reactiveVal(NULL)
+  work_rates <- reactiveVal(NULL)
+  clock_records <- reactiveVal(NULL)
+  employee_refresh_trigger <- reactiveVal(FALSE) # 添加触发器
+  
   # 创建全局环境变量用于存储缓存数据
   cache_env <- new.env()
   
@@ -663,6 +669,7 @@ server <- function(input, output, session) {
   observeEvent(input$refresh_item_table, {
     unique_items_data_refresh_trigger(!unique_items_data_refresh_trigger())  # 触发数据刷新
     orders_refresh_trigger(!orders_refresh_trigger()) # 触发 orders 数据刷新
+    employee_refresh_trigger(!employee_refresh_trigger()) # 触发员工相关数据刷新
     refreshTransactionTable("买货卡", cache_env, transaction_table_hash, output, con)
     refreshTransactionTable("工资卡", cache_env, transaction_table_hash, output, con)
     refreshTransactionTable("美元卡", cache_env, transaction_table_hash, output, con)
@@ -694,6 +701,14 @@ server <- function(input, output, session) {
       showNotification(paste("初始化数据失败:", e$message), type = "error")
       employees_data(data.frame(EmployeeName = character(0)))
     })
+  })
+  
+  # 响应刷新触发器，更新数据库
+  observe({
+    req(employee_refresh_trigger())
+    employees_data(dbGetQuery(con, "SELECT EmployeeName FROM employees"))
+    work_rates(dbGetQuery(con, "SELECT EmployeeName, WorkType, HourlyRate FROM employee_work_rates"))
+    clock_records(dbGetQuery(con, "SELECT * FROM clock_records ORDER BY CreatedAt DESC"))
   })
   
   # 动态更新员工姓名下拉菜单
@@ -954,7 +969,7 @@ server <- function(input, output, session) {
     
     datatable(
       today_records,
-      options = list(pageLength = 5, scrollX = TRUE, searching = FALSE),
+      options = list(pageLength = 10, scrollX = TRUE, searching = FALSE),
       rownames = FALSE
     )
   })
