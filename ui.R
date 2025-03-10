@@ -151,6 +151,42 @@ ui <- navbarPage(
   ),
   
   tabPanel(
+    "打卡", icon = icon("clock"),
+    div(class = "layout-container",
+        div(class = "sticky-sidebar",
+            tags$h4("员工打卡", style = "font-weight: bold; color: #007BFF; margin-bottom: 15px;"),
+            selectInput(
+              inputId = "employee_name",
+              label = "选择员工姓名:",
+              choices = NULL, # 将在server端动态填充
+              selected = NULL,
+              width = "100%"
+            ),
+            selectInput(
+              inputId = "work_type",
+              label = "选择工作类型:",
+              choices = c("", "直播", "采购记录"), # 空选项作为默认未选择状态
+              selected = "",
+              width = "100%"
+            ),
+            actionButton(
+              "clock_in_out_btn",
+              "打卡",
+              icon = icon("clock"),
+              class = "btn-lg btn-block", # 大按钮
+              style = "font-size: 20px; padding: 15px; margin-top: 20px;",
+              disabled = "disabled" # 初始禁用状态
+            )
+        ),
+        div(class = "resizable-divider"),
+        div(class = "main-panel",
+            tags$h4("当前工作时长", style = "color: #007BFF; font-weight: bold; margin-bottom: 15px;"),
+            uiOutput("timer_display") # 实时计时器
+        )
+    )
+  ), # End of "打卡”
+  
+  tabPanel(
     "采购", icon = icon("shopping-cart"),
     div(class = "layout-container",  # Flexbox 容器
         div(class = "sticky-sidebar",  # sticky 侧边栏
