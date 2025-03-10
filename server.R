@@ -718,63 +718,59 @@ server <- function(input, output, session) {
   
   # 控制打卡按钮状态
   observe({
-    # 添加调试信息
-    cat("employee_name:", input$employee_name, "\n")
-    cat("work_type:", input$work_type, "\n")
-    
     # 确保输入有效性
     if (is.null(input$employee_name) || input$employee_name == "" || 
         is.null(input$work_type) || input$work_type == "") {
       shinyjs::disable("clock_in_out_btn")
+      shinyjs::removeClass("clock_in_out_btn", "btn-success btn-danger")
       updateActionButton(
         session,
         "clock_in_out_btn",
         label = "打卡",
-        icon = icon("clock"),
-        class = "btn-lg btn-block"
+        icon = icon("clock")
       )
       return()
     }
     
     # 检查是否有未结束的记录
     ongoing_record <- current_clock()
-    cat("ongoing_record:", if (is.null(ongoing_record)) "NULL" else ongoing_record$EmployeeName, "\n")
     
     # 检查薪酬是否存在
     hourly_rate <- work_rates() %>% 
       filter(EmployeeName == input$employee_name, WorkType == input$work_type) %>% 
       pull(HourlyRate)
-    cat("hourly_rate:", if (length(hourly_rate) == 0) "未设置" else hourly_rate, "\n")
     
     if (is.null(ongoing_record) && length(hourly_rate) > 0) {
       # 无记录且薪酬已设置，启用“工作开始”
       shinyjs::enable("clock_in_out_btn")
+      shinyjs::removeClass("clock_in_out_btn", "btn-danger")
+      shinyjs::addClass("clock_in_out_btn", "btn-success")
       updateActionButton(
         session,
         "clock_in_out_btn",
         label = "工作开始",
-        icon = icon("play"),
-        class = "btn-lg btn-block btn-success"
+        icon = icon("play")
       )
     } else if (!is.null(ongoing_record) && ongoing_record$EmployeeName == input$employee_name) {
       # 有未结束记录且匹配当前员工，显示“工作结束”
       shinyjs::enable("clock_in_out_btn")
+      shinyjs::removeClass("clock_in_out_btn", "btn-success")
+      shinyjs::addClass("clock_in_out_btn", "btn-danger")
       updateActionButton(
         session,
         "clock_in_out_btn",
         label = "工作结束",
-        icon = icon("stop"),
-        class = "btn-lg btn-block btn-danger"
+        icon = icon("stop")
       )
     } else {
       # 其他情况（包括薪酬未设置）禁用按钮
       shinyjs::disable("clock_in_out_btn")
+      shinyjs::removeClass("clock_in_out_btn", "btn-success btn-danger")
       updateActionButton(
         session,
         "clock_in_out_btn",
         label = "打卡",
-        icon = icon("clock"),
-        class = "btn-lg btn-block"
+        icon = icon("clock")
       )
     }
   })
