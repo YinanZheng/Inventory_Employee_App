@@ -947,7 +947,7 @@ server <- function(input, output, session) {
     if (nrow(today_records) == 0) {
       return(datatable(
         data.frame(Message = "今天暂无工作记录"),
-        options = list(pageLength = 5, scrollX = TRUE, searching = FALSE),
+        options = list(pageLength = 10, scrollX = TRUE, searching = FALSE),
         rownames = FALSE
       ))
     }
