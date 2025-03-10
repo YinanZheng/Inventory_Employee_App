@@ -709,74 +709,50 @@ server <- function(input, output, session) {
     )
   })
   
-  # 检查员工的未结束工作并恢复状态
-  observeEvent(input$employee_name, {
-    req(input$employee_name)
+  # 统一管理状态
+  observe({
+    # 如果未选择员工，重置状态
+    if (is.null(input$employee_name) || input$employee_name == "") {
+      updateSelectInput(session, "work_type", selected = "")
+      shinyjs::disable("clock_in_out_btn")
+      shinyjs::removeClass("clock_in_out_btn", "btn-success btn-danger")
+      updateActionButton(session, "clock_in_out_btn", label = "打卡", icon = icon("clock"))
+      return()
+    }
     
-    # 查询该员工是否有未结束的记录
+    # 检查未结束记录
     ongoing_record <- clock_records() %>%
       filter(EmployeeName == input$employee_name, !is.na(ClockInTime), is.na(ClockOutTime)) %>%
       slice(1)
     
     if (nrow(ongoing_record) > 0) {
-      # 恢复工作类型
-      updateSelectInput(
-        session,
-        "work_type",
-        selected = ongoing_record$WorkType
-      )
-      # 恢复按钮状态
+      # 有未结束记录，恢复状态
+      updateSelectInput(session, "work_type", selected = ongoing_record$WorkType)
       shinyjs::enable("clock_in_out_btn")
       shinyjs::removeClass("clock_in_out_btn", "btn-success")
       shinyjs::addClass("clock_in_out_btn", "btn-danger")
-      updateActionButton(
-        session,
-        "clock_in_out_btn",
-        label = "工作结束",
-        icon = icon("stop")
-      )
+      updateActionButton(session, "clock_in_out_btn", label = "工作结束", icon = icon("stop"))
+    } else if (!is.null(input$work_type) && input$work_type != "") {
+      # 无未结束记录，且工作类型已选择，检查薪酬
+      hourly_rate <- work_rates() %>% 
+        filter(EmployeeName == input$employee_name, WorkType == input$work_type) %>% 
+        pull(HourlyRate)
+      
+      if (length(hourly_rate) > 0) {
+        shinyjs::enable("clock_in_out_btn")
+        shinyjs::removeClass("clock_in_out_btn", "btn-danger")
+        shinyjs::addClass("clock_in_out_btn", "btn-success")
+        updateActionButton(session, "clock_in_out_btn", label = "工作开始", icon = icon("play"))
+      } else {
+        shinyjs::disable("clock_in_out_btn")
+        shinyjs::removeClass("clock_in_out_btn", "btn-success btn-danger")
+        updateActionButton(session, "clock_in_out_btn", label = "打卡", icon = icon("clock"))
+      }
     } else {
-      # 重置工作类型和按钮
-      updateSelectInput(
-        session,
-        "work_type",
-        selected = ""
-      )
+      # 未选择工作类型，重置按钮
       shinyjs::disable("clock_in_out_btn")
       shinyjs::removeClass("clock_in_out_btn", "btn-success btn-danger")
-      updateActionButton(
-        session,
-        "clock_in_out_btn",
-        label = "打卡",
-        icon = icon("clock")
-      )
-    }
-  })
-  
-  # 控制打卡按钮状态（仅在无未结束记录时启用“工作开始”）
-  observe({
-    req(input$employee_name, input$work_type)
-    
-    # 检查是否有未结束记录
-    ongoing_record <- clock_records() %>%
-      filter(EmployeeName == input$employee_name, !is.na(ClockInTime), is.na(ClockOutTime)) %>%
-      slice(1)
-    
-    hourly_rate <- work_rates() %>% 
-      filter(EmployeeName == input$employee_name, WorkType == input$work_type) %>% 
-      pull(HourlyRate)
-    
-    if (nrow(ongoing_record) == 0 && length(hourly_rate) > 0 && 
-        input$employee_name != "" && input$work_type != "") {
-      shinyjs::enable("clock_in_out_btn")
-      shinyjs::removeClass("clock_in_out_btn", "btn-danger")
-      shinyjs::addClass("clock_in_out_btn", "btn-success")
-      updateActionButton(
-        session,
-        "clock_in_out_btn",
-        label = "工作开始",
-        icon = icon("play")
-      )
+      updateActionButton(session, "clock_in_out_btn", label = "打卡", icon = icon("clock"))
     }
   })
   
@@ -813,12 +789,9 @@ server <- function(input, output, session) {
             params = list(record_id, employee, work_type, clock_in_time)
           )
           
-          # 更新 clock_records
           clock_records(dbGetQuery(con, "SELECT * FROM clock_records ORDER BY CreatedAt DESC"))
-          
           showNotification("工作开始！", type = "message")
-          playSuccessSound()
-        } else if (ongoing_record$EmployeeName == employee) {
+        } else {
           # 下班打卡
           record_id <- ongoing_record$RecordID
           clock_out_time <- Sys.time()
@@ -835,9 +808,7 @@ server <- function(input, output, session) {
           )
           
           clock_records(dbGetQuery(con, "SELECT * FROM clock_records ORDER BY CreatedAt DESC"))
-          
           showNotification(paste("工作结束！时长:", round(hours_worked, 2), "小时，薪酬:", total_pay, "元"), type = "message")
-          playSuccessSound()
         }
       })
     }, error = function(e) {
@@ -847,27 +818,31 @@ server <- function(input, output, session) {
   
   # 实时计时器
   output$timer_display <- renderUI({
-    req(input$employee_name)
-    
+    # 不依赖 input$employee_name，直接检查所有未结束记录
     ongoing_record <- clock_records() %>%
-      filter(EmployeeName == input$employee_name, !is.na(ClockInTime), is.na(ClockOutTime)) %>%
+      filter(!is.na(ClockInTime), is.na(ClockOutTime)) %>%
       slice(1)
     
     if (nrow(ongoing_record) == 0) {
       return(tags$p("未开始工作", style = "font-size: 24px; color: #666; text-align: center; margin-top: 20px;"))
     }
     
-    invalidateLater(1000, session)
-    elapsed_time <- as.numeric(difftime(Sys.time(), ongoing_record$ClockInTime, units = "secs"))
-    
-    hours <- floor(elapsed_time / 3600)
-    minutes <- floor((elapsed_time %% 3600) / 60)
-    seconds <- floor(elapsed_time %% 60)
-    
-    tags$h2(
-      sprintf("%02d:%02d:%02d", hours, minutes, seconds),
-      style = "font-size: 48px; color: #333; text-align: center; margin-top: 20px;"
-    )
+    # 如果有未结束记录，且匹配当前选择员工，则显示计时
+    if (!is.null(input$employee_name) && ongoing_record$EmployeeName == input$employee_name) {
+      invalidateLater(1000, session)
+      elapsed_time <- as.numeric(difftime(Sys.time(), ongoing_record$ClockInTime, units = "secs"))
+      
+      hours <- floor(elapsed_time / 3600)
+      minutes <- floor((elapsed_time %% 3600) / 60)
+      seconds <- floor(elapsed_time %% 60)
+      
+      tags$h2(
+        sprintf("%02d:%02d:%02d", hours, minutes, seconds),
+        style = "font-size: 48px; color: #333; text-align: center; margin-top: 20px;"
+      )
+    } else {
+      tags$p("未开始工作", style = "font-size: 24px; color: #666; text-align: center; margin-top: 20px;")
+    }
   })
   
   
