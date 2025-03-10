@@ -845,26 +845,61 @@ server <- function(input, output, session) {
   
   # 手动补录打卡逻辑
   observeEvent(input$submit_manual_clock, {
-    req(input$employee_name, input$work_type, input$manual_date_in, input$manual_time_in)
+    req(input$employee_name, input$work_type)
     
     employee <- input$employee_name
     work_type <- input$work_type
     
-    # 拼接日期和时间，补齐秒为 ":00"
-    clock_in <- as.character(as.POSIXct(paste(input$manual_date_in, format(input$manual_time_in, "%H:%M:00")), 
-                                        format = "%Y-%m-%d %H:%M:%S", tz = "UTC"))
-    clock_out <- if (is.null(input$manual_date_out) || is.null(input$manual_time_out) || input$manual_date_out == "" || input$manual_time_out == "") {
+    # 确保日期和时间不为空
+    if (is.null(input$manual_date_in) || is.na(input$manual_date_in) || input$manual_date_in == "") {
+      showNotification("请选择工作开始日期！", type = "error")
+      return()
+    }
+    if (is.null(input$manual_time_in) || is.na(input$manual_time_in) || input$manual_time_in == "") {
+      showNotification("请选择工作开始时间！", type = "error")
+      return()
+    }
+    
+    # 拼接日期和时间，直接使用 timeInput 返回的字符串，补齐秒为 "00"
+    clock_in <- tryCatch({
+      as.character(as.POSIXct(paste(input$manual_date_in, paste(input$manual_time_in, "00", sep = ":")), 
+                              format = "%Y-%m-%d %H:%M:%S", tz = "UTC"))
+    }, error = function(e) {
+      showNotification("工作开始时间格式错误，请重新选择！", type = "error")
+      return(NULL)
+    })
+    
+    if (is.null(clock_in)) return()
+    
+    clock_out <- if (is.null(input$manual_date_out) || is.na(input$manual_date_out) || input$manual_date_out == "" ||
+                     is.null(input$manual_time_out) || is.na(input$manual_time_out) || input$manual_time_out == "") {
       NA
     } else {
-      as.character(as.POSIXct(paste(input$manual_date_out, format(input$manual_time_out, "%H:%M:00")), 
-                              format = "%Y-%m-%d %H:%M:%S", tz = "UTC"))
+      tryCatch({
+        as.character(as.POSIXct(paste(input$manual_date_out, paste(input$manual_time_out, "00", sep = ":")), 
+                                format = "%Y-%m-%d %H:%M:%S", tz = "UTC"))
+      }, error = function(e) {
+        showNotification("工作结束时间格式错误，请重新选择！", type = "error")
+        return(NULL)
+      })
     }
+    
+    if (!is.na(clock_out) && is.null(clock_out)) return()
     
     # 验证时间格式
     if (!grepl("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$", clock_in) || 
         (!is.na(clock_out) && !grepl("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$", clock_out))) {
       showNotification("时间格式错误，请正确选择日期和时间！", type = "error")
       return()
+    }
+    
+    # 验证时间逻辑：结束时间不能早于开始时间
+    if (!is.na(clock_out)) {
+      if (as.POSIXct(clock_out, format = "%Y-%m-%d %H:%M:%S", tz = "UTC") <= 
+          as.POSIXct(clock_in, format = "%Y-%m-%d %H:%M:%S", tz = "UTC")) {
+        showNotification("工作结束时间必须晚于开始时间！", type = "error")
+        return()
+      }
     }
     
     tryCatch({
@@ -915,16 +950,16 @@ server <- function(input, output, session) {
     })
   })
   
-  # 渲染当天工作记录表格
+  # 渲染当天工作记录表格（仅显示当前选择的员工）
   output$today_work_records_table <- renderDT({
-    req(clock_records())
+    req(clock_records(), input$employee_name)
     
     # 获取当天日期
     today <- as.Date(Sys.Date())
     
-    # 过滤当天记录
+    # 过滤当天记录，仅显示当前选择的员工
     today_records <- clock_records() %>%
-      filter(as.Date(ClockInTime) == today) %>%
+      filter(as.Date(ClockInTime) == today, EmployeeName == input$employee_name) %>%
       left_join(work_rates(), by = c("EmployeeName", "WorkType")) %>%
       mutate(
         ClockInTime = as.character(format(as.POSIXct(ClockInTime, format = "%Y-%m-%d %H:%M:%S", tz = "UTC"), "%Y-%m-%d %H:%M:%S")),
