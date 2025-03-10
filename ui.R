@@ -165,8 +165,8 @@ ui <- navbarPage(
             selectInput(
               inputId = "work_type",
               label = "选择工作类型:",
-              choices = c("", "直播", "采购"),
-              selected = "",
+              choices = NULL,
+              selected = NULL,
               width = "100%"
             ),
             actionButton(

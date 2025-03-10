@@ -722,6 +722,24 @@ server <- function(input, output, session) {
     )
   })
   
+  observe({
+    req(input$employee_name, work_rates())
+    
+    valid_work_types <- work_rates() %>%
+      filter(EmployeeName == input$employee_name, HourlyRate > 0) %>%
+      pull(WorkType)
+    
+    if (length(valid_work_types) == 0) {
+      # 如果没有符合条件的工作类型，禁用下拉菜单和打卡按钮
+      updateSelectInput(session, "work_type", choices = c(""), selected = "")
+      shinyjs::disable("clock_in_out_btn")
+    } else {
+      # 否则更新下拉菜单
+      updateSelectInput(session, "work_type", choices = c("", valid_work_types), selected = "")
+      shinyjs::enable("clock_in_out_btn") # 视情况启用按钮
+    }
+  })
+  
   # 统一管理状态
   observe({
     # 如果未选择员工，重置状态
