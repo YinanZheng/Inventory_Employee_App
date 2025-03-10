@@ -176,12 +176,36 @@ ui <- navbarPage(
               class = "btn-lg btn-block",
               style = "font-size: 20px; padding: 15px; margin-top: 20px;",
               disabled = "disabled"
+            ),
+            div(
+              class = "card shadow-sm",
+              style = "border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: #f9f9f9; margin-top: 20px;",
+              tags$h4("手动补录打卡", style = "color: #28A745; margin-bottom: 10px;"),
+              datetimeInput(
+                inputId = "manual_clock_in",
+                label = "工作开始时间:",
+                value = NULL,
+                format = "yyyy-MM-dd HH:mm:ss",
+                width = "100%"
+              ),
+              datetimeInput(
+                inputId = "manual_clock_out",
+                label = "工作结束时间:",
+                value = NULL,
+                format = "yyyy-MM-dd HH:mm:ss",
+                width = "100%",
+                placeholder = "留空表示未结束"
+              ),
+              actionButton("submit_manual_clock", "提交补录", icon = icon("save"), class = "btn-success", 
+                           style = "width: 100%; margin-top: 10px;")
             )
         ),
         div(class = "resizable-divider"),
         div(class = "main-panel",
             tags$h4("当前工作时长", style = "color: #007BFF; font-weight: bold; margin-bottom: 15px;"),
-            uiOutput("timer_display")
+            uiOutput("timer_display"),
+            tags$h4("今日工作记录", style = "color: #007BFF; font-weight: bold; margin-top: 20px; margin-bottom: 15px;"),
+            DTOutput("today_work_records_table")
         )
     )
   ), # End of "打卡”
