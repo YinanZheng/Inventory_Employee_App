@@ -848,7 +848,7 @@ server <- function(input, output, session) {
             # 弹出销售额输入模态框
             showModal(modalDialog(
               title = "输入总销售额",
-              numericInput("sales_amount", "请输入本次直播的总销售额 (¥):", value = 0, min = 0, step = 0.01, width = "100%"),
+              numericInput("sales_amount", "请输入本次直播的总销售额 ($):", value = 0, min = 0, step = 0.01, width = "100%"),
               footer = tagList(
                 modalButton("取消"),
                 actionButton("confirm_sales_amount", "确认", class = "btn-success")
@@ -903,7 +903,7 @@ server <- function(input, output, session) {
       )
       
       clock_records(dbGetQuery(con, "SELECT * FROM clock_records ORDER BY CreatedAt DESC"))
-      showNotification(paste("工作结束！时长:", round(hours_worked, 2), "小时，薪酬:", total_pay, "元，总销售额:", sales_amount, "元"), type = "message")
+      showNotification(paste("工作结束！时长:", round(hours_worked, 2), "小时，薪酬:", total_pay, "元，总销售额:", sales_amount, "美元"), type = "message")
       removeModal()
     }, error = function(e) {
       showNotification(paste("更新失败:", e$message), type = "error")
