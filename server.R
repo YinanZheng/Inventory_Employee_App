@@ -690,21 +690,11 @@ server <- function(input, output, session) {
   # 初始化时加载数据
   observe({
     tryCatch({
-      # 查询员工列表
-      emp_data <- dbGetQuery(con, "SELECT EmployeeName FROM employees")
-      cat("Employees loaded:", nrow(emp_data), "rows\n")
-      if (nrow(emp_data) > 0) {
-        employees_data(emp_data)
-      } else {
-        showNotification("员工列表为空，请先添加员工！", type = "warning")
-        employees_data(data.frame(EmployeeName = character(0)))
-      }
-      
-      # 加载其他数据
+      employees_data(dbGetQuery(con, "SELECT EmployeeName FROM employees"))
       work_rates(dbGetQuery(con, "SELECT EmployeeName, WorkType, HourlyRate FROM employee_work_rates"))
       clock_records(dbGetQuery(con, "SELECT * FROM clock_records ORDER BY CreatedAt DESC"))
       
-      # 检查未结束的打卡记录
+      # 检查是否有未结束的打卡记录
       latest_record <- clock_records() %>%
         filter(!is.na(ClockInTime) & is.na(ClockOutTime)) %>%
         slice(1)
@@ -715,60 +705,39 @@ server <- function(input, output, session) {
         if (length(hourly_rate) > 0) {
           latest_record$HourlyRate <- hourly_rate
           current_clock(latest_record)
-          cat("Ongoing record found for:", latest_record$EmployeeName, "\n")
         }
       }
     }, error = function(e) {
       showNotification(paste("初始化数据失败:", e$message), type = "error")
-      employees_data(data.frame(EmployeeName = character(0))) # 失败时置为空
+      employees_data(data.frame(EmployeeName = character(0)))
     })
   })
   
   # 动态更新员工姓名下拉菜单
   observe({
     req(employees_data())
-    emp_choices <- employees_data()$EmployeeName
-    cat("Updating employee_name choices:", length(emp_choices), "options\n")
-    
     updateSelectInput(
       session,
       "employee_name",
-      choices = emp_choices,
+      choices = employees_data()$EmployeeName,
       selected = NULL
     )
   })
   
-  # 控制打卡按钮状态
-  observe({
-    if (is.null(input$employee_name) || input$employee_name == "" || 
-        is.null(input$work_type) || input$work_type == "") {
-      shinyjs::disable("clock_in_out_btn")
-      shinyjs::removeClass("clock_in_out_btn", "btn-success btn-danger")
-      updateActionButton(
-        session,
-        "clock_in_out_btn",
-        label = "打卡",
-        icon = icon("clock")
-      )
-      return()
-    }
+  # 自动恢复未结束的工作状态
+  observeEvent(input$employee_name, {
+    req(input$employee_name)
     
     ongoing_record <- current_clock()
-    hourly_rate <- work_rates() %>% 
-      filter(EmployeeName == input$employee_name, WorkType == input$work_type) %>% 
-      pull(HourlyRate)
     
-    if (is.null(ongoing_record) && length(hourly_rate) > 0) {
-      shinyjs::enable("clock_in_out_btn")
-      shinyjs::removeClass("clock_in_out_btn", "btn-danger")
-      shinyjs::addClass("clock_in_out_btn", "btn-success")
-      updateActionButton(
+    if (!is.null(ongoing_record) && ongoing_record$EmployeeName == input$employee_name) {
+      # 恢复工作类型
+      updateSelectInput(
         session,
-        "clock_in_out_btn",
-        label = "工作开始",
-        icon = icon("play")
+        "work_type",
+        selected = ongoing_record$WorkType
       )
-    } else if (!is.null(ongoing_record) && ongoing_record$EmployeeName == input$employee_name) {
+      # 恢复按钮状态
       shinyjs::enable("clock_in_out_btn")
       shinyjs::removeClass("clock_in_out_btn", "btn-success")
       shinyjs::addClass("clock_in_out_btn", "btn-danger")
@@ -779,6 +748,12 @@ server <- function(input, output, session) {
         icon = icon("stop")
       )
     } else {
+      # 重置工作类型和按钮
+      updateSelectInput(
+        session,
+        "work_type",
+        selected = ""
+      )
       shinyjs::disable("clock_in_out_btn")
       shinyjs::removeClass("clock_in_out_btn", "btn-success btn-danger")
       updateActionButton(
@@ -786,6 +761,29 @@ server <- function(input, output, session) {
         "clock_in_out_btn",
         label = "打卡",
         icon = icon("clock")
+      )
+    }
+  })
+  
+  # 控制打卡按钮状态（仅在无未结束记录时启用“工作开始”）
+  observe({
+    req(input$employee_name, input$work_type)
+    
+    ongoing_record <- current_clock()
+    hourly_rate <- work_rates() %>% 
+      filter(EmployeeName == input$employee_name, WorkType == input$work_type) %>% 
+      pull(HourlyRate)
+    
+    if (is.null(ongoing_record) && length(hourly_rate) > 0 && 
+        input$employee_name != "" && input$work_type != "") {
+      shinyjs::enable("clock_in_out_btn")
+      shinyjs::removeClass("clock_in_out_btn", "btn-danger")
+      shinyjs::addClass("clock_in_out_btn", "btn-success")
+      updateActionButton(
+        session,
+        "clock_in_out_btn",
+        label = "工作开始",
+        icon = icon("play")
       )
     }
   })
@@ -801,6 +799,7 @@ server <- function(input, output, session) {
     tryCatch({
       dbWithTransaction(con, {
         if (is.null(ongoing_record)) {
+          # 上班打卡
           record_id <- uuid::UUIDgenerate()
           clock_in_time <- Sys.time()
           hourly_rate <- work_rates() %>% 
@@ -827,7 +826,9 @@ server <- function(input, output, session) {
           ))
           
           showNotification("工作开始！", type = "message")
+          playSuccessSound()
         } else if (ongoing_record$EmployeeName == employee) {
+          # 下班打卡
           record_id <- ongoing_record$RecordID
           clock_out_time <- Sys.time()
           hours_worked <- as.numeric(difftime(clock_out_time, ongoing_record$ClockInTime, units = "hours"))
@@ -843,6 +844,7 @@ server <- function(input, output, session) {
           clock_records(dbGetQuery(con, "SELECT * FROM clock_records ORDER BY CreatedAt DESC"))
           
           showNotification(paste("工作结束！时长:", round(hours_worked, 2), "小时，薪酬:", total_pay, "元"), type = "message")
+          playSuccessSound()
         }
       })
     }, error = function(e) {
