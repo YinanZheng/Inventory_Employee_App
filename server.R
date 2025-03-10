@@ -850,17 +850,6 @@ server <- function(input, output, session) {
     employee <- input$employee_name
     work_type <- input$work_type
     
-    # 确保日期和时间不为空
-    if (is.null(input$manual_date_in) || is.na(input$manual_date_in) || input$manual_date_in == "") {
-      showNotification("请选择工作开始日期！", type = "error")
-      return()
-    }
-    if (is.null(input$manual_time_in) || is.na(input$manual_time_in) || input$manual_time_in == "") {
-      showNotification("请选择工作开始时间！", type = "error")
-      return()
-    }
-    
-    # 拼接日期和时间，直接使用 timeInput 返回的字符串，补齐秒为 "00"
     clock_in <- tryCatch({
       as.character(as.POSIXct(paste(input$manual_date_in, paste(input$manual_time_in, "00", sep = ":")), 
                               format = "%Y-%m-%d %H:%M:%S", tz = "UTC"))
@@ -871,37 +860,21 @@ server <- function(input, output, session) {
     
     if (is.null(clock_in)) return()
     
-    # 检查 clock_out，先判断是否为空
-    clock_out <- if (is.null(input$manual_date_out) || is.na(input$manual_date_out) || input$manual_date_out == "" ||
-                     is.null(input$manual_time_out) || is.na(input$manual_time_out) || input$manual_time_out == "") {
-      NA
-    } else {
-      tryCatch({
+    clock_out <- tryCatch({
+      if (!is.null(input$manual_date_out) && !is.null(input$manual_time_out)) {
         as.character(as.POSIXct(paste(input$manual_date_out, paste(input$manual_time_out, "00", sep = ":")), 
                                 format = "%Y-%m-%d %H:%M:%S", tz = "UTC"))
-      }, error = function(e) {
-        showNotification("工作结束时间格式错误，请重新选择！", type = "error")
-        return(NULL)
-      })
-    }
-    
-    # 调整条件，先检查 is.null，再检查 is.na，避免逻辑错误
-    if (is.null(clock_out)) return()
-    
-    # 验证时间格式
-    if (!grepl("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$", clock_in) || 
-        (!is.na(clock_out) && !grepl("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$", clock_out))) {
-      showNotification("时间格式错误，请正确选择日期和时间！", type = "error")
-      return()
-    }
-    
-    # 验证时间逻辑：结束时间不能早于开始时间
-    if (!is.na(clock_out)) {
-      if (as.POSIXct(clock_out, format = "%Y-%m-%d %H:%M:%S", tz = "UTC") <= 
-          as.POSIXct(clock_in, format = "%Y-%m-%d %H:%M:%S", tz = "UTC")) {
-        showNotification("工作结束时间必须晚于开始时间！", type = "error")
-        return()
+      } else {
+        NA
       }
+    }, error = function(e) {
+      showNotification("工作结束时间格式错误，请重新选择！", type = "error")
+      return(NULL)
+    })
+    
+    if (!is.na(clock_out) && as.POSIXct(clock_out) <= as.POSIXct(clock_in)) {
+      showNotification("工作结束时间必须晚于开始时间！", type = "error")
+      return()
     }
     
     tryCatch({
@@ -916,36 +889,21 @@ server <- function(input, output, session) {
           return()
         }
         
-        total_pay <- NA
-        if (!is.na(clock_out)) {
-          hours_worked <- as.numeric(difftime(as.POSIXct(clock_out, format = "%Y-%m-%d %H:%M:%S", tz = "UTC"),
-                                              as.POSIXct(clock_in, format = "%Y-%m-%d %H:%M:%S", tz = "UTC"),
-                                              units = "hours"))
-          total_pay <- round(hours_worked * hourly_rate, 2)
+        total_pay <- if (!is.na(clock_out)) {
+          hours_worked <- as.numeric(difftime(as.POSIXct(clock_out), as.POSIXct(clock_in), units = "hours"))
+          round(hours_worked * hourly_rate, 2)
+        } else {
+          NA
         }
         
-        if (is.na(clock_out)) {
-          dbExecute(
-            con,
-            "INSERT INTO clock_records (RecordID, EmployeeName, WorkType, ClockInTime) VALUES (?, ?, ?, ?)",
-            params = list(record_id, employee, work_type, clock_in)
-          )
-        } else {
-          dbExecute(
-            con,
-            "INSERT INTO clock_records (RecordID, EmployeeName, WorkType, ClockInTime, ClockOutTime, TotalPay) VALUES (?, ?, ?, ?, ?, ?)",
-            params = list(record_id, employee, work_type, clock_in, clock_out, total_pay)
-          )
-        }
+        dbExecute(
+          con,
+          "INSERT INTO clock_records (RecordID, EmployeeName, WorkType, ClockInTime, ClockOutTime, TotalPay) VALUES (?, ?, ?, ?, ?, ?)",
+          params = list(record_id, employee, work_type, clock_in, clock_out, total_pay)
+        )
         
         clock_records(dbGetQuery(con, "SELECT * FROM clock_records ORDER BY CreatedAt DESC"))
         showNotification("手动补录打卡成功！", type = "message")
-        
-        # 清空输入框
-        updateDateInput(session, "manual_date_in", value = NULL)
-        updateTimeInput(session, "manual_time_in", value = strptime("09:00", "%H:%M"))
-        updateDateInput(session, "manual_date_out", value = NULL)
-        updateTimeInput(session, "manual_time_out", value = strptime("18:00", "%H:%M"))
       })
     }, error = function(e) {
       showNotification(paste("手动补录失败:", e$message), type = "error")
