@@ -685,7 +685,6 @@ server <- function(input, output, session) {
   employees_data <- reactiveVal(NULL)
   work_rates <- reactiveVal(NULL)
   clock_records <- reactiveVal(NULL)
-  current_clock <- reactiveVal(NULL)
   
   # 初始化时加载数据
   observe({
@@ -693,20 +692,6 @@ server <- function(input, output, session) {
       employees_data(dbGetQuery(con, "SELECT EmployeeName FROM employees"))
       work_rates(dbGetQuery(con, "SELECT EmployeeName, WorkType, HourlyRate FROM employee_work_rates"))
       clock_records(dbGetQuery(con, "SELECT * FROM clock_records ORDER BY CreatedAt DESC"))
-      
-      # 检查是否有未结束的打卡记录
-      latest_record <- clock_records() %>%
-        filter(!is.na(ClockInTime) & is.na(ClockOutTime)) %>%
-        slice(1)
-      if (nrow(latest_record) > 0) {
-        hourly_rate <- work_rates() %>% 
-          filter(EmployeeName == latest_record$EmployeeName, WorkType == latest_record$WorkType) %>% 
-          pull(HourlyRate)
-        if (length(hourly_rate) > 0) {
-          latest_record$HourlyRate <- hourly_rate
-          current_clock(latest_record)
-        }
-      }
     }, error = function(e) {
       showNotification(paste("初始化数据失败:", e$message), type = "error")
       employees_data(data.frame(EmployeeName = character(0)))
@@ -724,13 +709,16 @@ server <- function(input, output, session) {
     )
   })
   
-  # 自动恢复未结束的工作状态
+  # 检查员工的未结束工作并恢复状态
   observeEvent(input$employee_name, {
     req(input$employee_name)
     
-    ongoing_record <- current_clock()
+    # 查询该员工是否有未结束的记录
+    ongoing_record <- clock_records() %>%
+      filter(EmployeeName == input$employee_name, !is.na(ClockInTime), is.na(ClockOutTime)) %>%
+      slice(1)
     
-    if (!is.null(ongoing_record) && ongoing_record$EmployeeName == input$employee_name) {
+    if (nrow(ongoing_record) > 0) {
       # 恢复工作类型
       updateSelectInput(
         session,
@@ -769,12 +757,16 @@ server <- function(input, output, session) {
   observe({
     req(input$employee_name, input$work_type)
     
-    ongoing_record <- current_clock()
+    # 检查是否有未结束记录
+    ongoing_record <- clock_records() %>%
+      filter(EmployeeName == input$employee_name, !is.na(ClockInTime), is.na(ClockOutTime)) %>%
+      slice(1)
+    
     hourly_rate <- work_rates() %>% 
       filter(EmployeeName == input$employee_name, WorkType == input$work_type) %>% 
       pull(HourlyRate)
     
-    if (is.null(ongoing_record) && length(hourly_rate) > 0 && 
+    if (nrow(ongoing_record) == 0 && length(hourly_rate) > 0 && 
         input$employee_name != "" && input$work_type != "") {
       shinyjs::enable("clock_in_out_btn")
       shinyjs::removeClass("clock_in_out_btn", "btn-danger")
@@ -794,11 +786,15 @@ server <- function(input, output, session) {
     
     employee <- input$employee_name
     work_type <- input$work_type
-    ongoing_record <- current_clock()
     
     tryCatch({
       dbWithTransaction(con, {
-        if (is.null(ongoing_record)) {
+        # 检查当前状态
+        ongoing_record <- clock_records() %>%
+          filter(EmployeeName == employee, !is.na(ClockInTime), is.na(ClockOutTime)) %>%
+          slice(1)
+        
+        if (nrow(ongoing_record) == 0) {
           # 上班打卡
           record_id <- uuid::UUIDgenerate()
           clock_in_time <- Sys.time()
@@ -817,13 +813,8 @@ server <- function(input, output, session) {
             params = list(record_id, employee, work_type, clock_in_time)
           )
           
-          current_clock(data.frame(
-            RecordID = record_id,
-            EmployeeName = employee,
-            WorkType = work_type,
-            ClockInTime = clock_in_time,
-            HourlyRate = hourly_rate
-          ))
+          # 更新 clock_records
+          clock_records(dbGetQuery(con, "SELECT * FROM clock_records ORDER BY CreatedAt DESC"))
           
           showNotification("工作开始！", type = "message")
           playSuccessSound()
@@ -832,7 +823,10 @@ server <- function(input, output, session) {
           record_id <- ongoing_record$RecordID
           clock_out_time <- Sys.time()
           hours_worked <- as.numeric(difftime(clock_out_time, ongoing_record$ClockInTime, units = "hours"))
-          total_pay <- round(hours_worked * ongoing_record$HourlyRate, 2)
+          hourly_rate <- work_rates() %>% 
+            filter(EmployeeName == employee, WorkType == ongoing_record$WorkType) %>% 
+            pull(HourlyRate)
+          total_pay <- round(hours_worked * hourly_rate, 2)
           
           dbExecute(
             con,
@@ -840,7 +834,6 @@ server <- function(input, output, session) {
             params = list(clock_out_time, total_pay, record_id)
           )
           
-          current_clock(NULL)
           clock_records(dbGetQuery(con, "SELECT * FROM clock_records ORDER BY CreatedAt DESC"))
           
           showNotification(paste("工作结束！时长:", round(hours_worked, 2), "小时，薪酬:", total_pay, "元"), type = "message")
@@ -854,8 +847,13 @@ server <- function(input, output, session) {
   
   # 实时计时器
   output$timer_display <- renderUI({
-    ongoing_record <- current_clock()
-    if (is.null(ongoing_record)) {
+    req(input$employee_name)
+    
+    ongoing_record <- clock_records() %>%
+      filter(EmployeeName == input$employee_name, !is.na(ClockInTime), is.na(ClockOutTime)) %>%
+      slice(1)
+    
+    if (nrow(ongoing_record) == 0) {
       return(tags$p("未开始工作", style = "font-size: 24px; color: #666; text-align: center; margin-top: 20px;"))
     }
     
