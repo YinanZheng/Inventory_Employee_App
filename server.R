@@ -871,6 +871,7 @@ server <- function(input, output, session) {
     
     if (is.null(clock_in)) return()
     
+    # 检查 clock_out，先判断是否为空
     clock_out <- if (is.null(input$manual_date_out) || is.na(input$manual_date_out) || input$manual_date_out == "" ||
                      is.null(input$manual_time_out) || is.na(input$manual_time_out) || input$manual_time_out == "") {
       NA
@@ -884,7 +885,8 @@ server <- function(input, output, session) {
       })
     }
     
-    if (!is.na(clock_out) && is.null(clock_out)) return()
+    # 调整条件，先检查 is.null，再检查 is.na，避免逻辑错误
+    if (is.null(clock_out)) return()
     
     # 验证时间格式
     if (!grepl("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$", clock_in) || 
