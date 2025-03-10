@@ -213,7 +213,7 @@ ui <- navbarPage(
         div(class = "main-panel",
             tags$h4("当前工作时长", style = "color: #007BFF; font-weight: bold; margin-bottom: 15px;"),
             uiOutput("timer_display"),
-            tags$h4("当天工作记录", style = "color: #007BFF; font-weight: bold; margin-top: 20px; margin-bottom: 15px;"),
+            tags$h4("今日工作记录", style = "color: #007BFF; font-weight: bold; margin-top: 20px; margin-bottom: 15px;"),
             DTOutput("today_work_records_table")
         )
     )
