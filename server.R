@@ -776,7 +776,7 @@ server <- function(input, output, session) {
             filter(EmployeeName == employee, WorkType == work_type) %>% 
             pull(HourlyRate)
           
-          if (length(hourly_rate) == 0) {
+          if (length(hourly_rate) == 0 | hourly_rate == 0) {
             showNotification("该员工此工作类型的薪酬未设置，请联系管理员！", type = "error")
             return()
           }
