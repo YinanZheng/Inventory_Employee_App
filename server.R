@@ -1041,8 +1041,10 @@ server <- function(input, output, session) {
   output$today_work_records_table <- renderDT({
     req(clock_records(), input$employee_name)
     
+    # 获取当天日期
     today <- as.Date(Sys.Date())
     
+    # 过滤当天记录，仅显示当前选择的员工
     today_records <- clock_records() %>%
       filter(as.Date(ClockInTime) == today, EmployeeName == input$employee_name) %>%
       left_join(work_rates(), by = c("EmployeeName", "WorkType")) %>%
@@ -1050,11 +1052,14 @@ server <- function(input, output, session) {
         ClockInTime = as.character(format(as.POSIXct(ClockInTime, format = "%Y-%m-%d %H:%M:%S", tz = "UTC"), "%Y-%m-%d %H:%M:%S")),
         ClockOutTime = ifelse(is.na(ClockOutTime), "未结束", 
                               as.character(format(as.POSIXct(ClockOutTime, format = "%Y-%m-%d %H:%M:%S", tz = "UTC"), "%Y-%m-%d %H:%M:%S"))),
-        HoursWorked = ifelse(is.na(ClockOutTime) | is.na(ClockInTime), 0,
-                             round(as.numeric(difftime(as.POSIXct(ClockOutTime), as.POSIXct(ClockInTime), units = "hours")), 2)),
+        HoursWorked = ifelse(is.na(ClockOutTime) | is.na(ClockInTime) | !grepl("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$", ClockInTime) | 
+                               (!is.na(ClockOutTime) & !grepl("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$", ClockOutTime)),
+                             0,
+                             round(as.numeric(difftime(as.POSIXct(ClockOutTime, format = "%Y-%m-%d %H:%M:%S", tz = "UTC"),
+                                                       as.POSIXct(ClockInTime, format = "%Y-%m-%d %H:%M:%S", tz = "UTC"),
+                                                       units = "hours")), 2)),
         HourlyRate = round(ifelse(is.na(HourlyRate), 0, HourlyRate), 2),
-        TotalPay = sprintf("¥%.2f", round(ifelse(is.na(TotalPay), 0, TotalPay), 2)),
-        SalesAmount = sprintf("¥%.2f", ifelse(is.na(SalesAmount), 0, SalesAmount)) # 销售额格式化
+        TotalPay = sprintf("¥%.2f", round(ifelse(is.na(TotalPay), 0, TotalPay), 2))
       ) %>%
       select(
         "员工姓名" = EmployeeName,
@@ -1063,8 +1068,7 @@ server <- function(input, output, session) {
         "下班时间" = ClockOutTime,
         "工作时长 (小时)" = HoursWorked,
         "时薪 (¥)" = HourlyRate,
-        "总薪酬 (¥)" = TotalPay,
-        "销售额 ($)" = SalesAmount # 添加销售额列
+        "总薪酬" = TotalPay
       )
     
     if (nrow(today_records) == 0) {
