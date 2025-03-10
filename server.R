@@ -1038,6 +1038,7 @@ server <- function(input, output, session) {
   })
   
   # 渲染当天工作记录表格（仅显示当前选择的员工）
+  # 渲染当天工作记录表格（仅显示当前选择的员工）
   output$today_work_records_table <- renderDT({
     req(clock_records(), input$employee_name)
     
@@ -1052,14 +1053,13 @@ server <- function(input, output, session) {
         ClockInTime = as.character(format(as.POSIXct(ClockInTime, format = "%Y-%m-%d %H:%M:%S", tz = "UTC"), "%Y-%m-%d %H:%M:%S")),
         ClockOutTime = ifelse(is.na(ClockOutTime), "未结束", 
                               as.character(format(as.POSIXct(ClockOutTime, format = "%Y-%m-%d %H:%M:%S", tz = "UTC"), "%Y-%m-%d %H:%M:%S"))),
-        HoursWorked = ifelse(is.na(ClockOutTime) | is.na(ClockInTime) | !grepl("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$", ClockInTime) | 
-                               (!is.na(ClockOutTime) & !grepl("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$", ClockOutTime)),
-                             0,
+        HoursWorked = ifelse(is.na(ClockOutTime) | is.na(ClockInTime), 0,
                              round(as.numeric(difftime(as.POSIXct(ClockOutTime, format = "%Y-%m-%d %H:%M:%S", tz = "UTC"),
                                                        as.POSIXct(ClockInTime, format = "%Y-%m-%d %H:%M:%S", tz = "UTC"),
                                                        units = "hours")), 2)),
         HourlyRate = round(ifelse(is.na(HourlyRate), 0, HourlyRate), 2),
-        TotalPay = sprintf("¥%.2f", round(ifelse(is.na(TotalPay), 0, TotalPay), 2))
+        TotalPay = sprintf("¥%.2f", round(ifelse(is.na(TotalPay), 0, TotalPay), 2)),
+        SalesAmount = sprintf("$%.2f", ifelse(is.na(SalesAmount), 0, SalesAmount)) # 格式化销售额为货币形式
       ) %>%
       select(
         "员工姓名" = EmployeeName,
@@ -1068,9 +1068,11 @@ server <- function(input, output, session) {
         "下班时间" = ClockOutTime,
         "工作时长 (小时)" = HoursWorked,
         "时薪 (¥)" = HourlyRate,
-        "总薪酬" = TotalPay
+        "总薪酬 (¥)" = TotalPay,
+        "销售额 ($)" = SalesAmount # 新增销售额列
       )
     
+    # 如果没有记录，显示提示信息
     if (nrow(today_records) == 0) {
       return(datatable(
         data.frame(Message = "今天暂无工作记录"),
@@ -1079,6 +1081,7 @@ server <- function(input, output, session) {
       ))
     }
     
+    # 返回数据表
     datatable(
       today_records,
       options = list(pageLength = 10, scrollX = TRUE, searching = FALSE),
