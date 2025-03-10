@@ -165,7 +165,7 @@ ui <- navbarPage(
             selectInput(
               inputId = "work_type",
               label = "选择工作类型:",
-              choices = c("", "直播", "采购记录"),
+              choices = c("", "直播", "采购"),
               selected = "",
               width = "100%"
             ),
