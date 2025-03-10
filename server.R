@@ -827,7 +827,6 @@ server <- function(input, output, session) {
           ))
           
           showNotification("工作开始！", type = "message")
-          playSuccessSound()
         } else if (ongoing_record$EmployeeName == employee) {
           record_id <- ongoing_record$RecordID
           clock_out_time <- Sys.time()
@@ -844,7 +843,6 @@ server <- function(input, output, session) {
           clock_records(dbGetQuery(con, "SELECT * FROM clock_records ORDER BY CreatedAt DESC"))
           
           showNotification(paste("工作结束！时长:", round(hours_worked, 2), "小时，薪酬:", total_pay, "元"), type = "message")
-          playSuccessSound()
         }
       })
     }, error = function(e) {
