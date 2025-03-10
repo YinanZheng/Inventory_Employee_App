@@ -158,14 +158,14 @@ ui <- navbarPage(
             selectInput(
               inputId = "employee_name",
               label = "选择员工姓名:",
-              choices = NULL, # 将在server端动态填充
+              choices = NULL,
               selected = NULL,
               width = "100%"
             ),
             selectInput(
               inputId = "work_type",
               label = "选择工作类型:",
-              choices = c("", "直播", "采购记录"), # 空选项作为默认未选择状态
+              choices = c("", "直播", "采购记录"),
               selected = "",
               width = "100%"
             ),
@@ -173,15 +173,15 @@ ui <- navbarPage(
               "clock_in_out_btn",
               "打卡",
               icon = icon("clock"),
-              class = "btn-lg btn-block", # 大按钮
+              class = "btn-lg btn-block",
               style = "font-size: 20px; padding: 15px; margin-top: 20px;",
-              disabled = "disabled" # 初始禁用状态
+              disabled = "disabled"
             )
         ),
         div(class = "resizable-divider"),
         div(class = "main-panel",
             tags$h4("当前工作时长", style = "color: #007BFF; font-weight: bold; margin-bottom: 15px;"),
-            uiOutput("timer_display") # 实时计时器
+            uiOutput("timer_display")
         )
     )
   ), # End of "打卡”

@@ -685,7 +685,7 @@ server <- function(input, output, session) {
   employees_data <- reactiveVal(NULL)
   work_rates <- reactiveVal(NULL)
   clock_records <- reactiveVal(NULL)
-  current_clock <- reactiveVal(NULL) # 存储当前正在进行的打卡记录
+  current_clock <- reactiveVal(NULL)
   
   # 初始化时加载数据
   observe({
@@ -694,7 +694,6 @@ server <- function(input, output, session) {
       work_rates(dbGetQuery(con, "SELECT EmployeeName, WorkType, HourlyRate FROM employee_work_rates"))
       clock_records(dbGetQuery(con, "SELECT * FROM clock_records ORDER BY CreatedAt DESC"))
       
-      # 检查是否有未结束的打卡记录
       latest_record <- clock_records() %>%
         filter(!is.na(ClockInTime) & is.na(ClockOutTime)) %>%
         slice(1)
@@ -702,7 +701,7 @@ server <- function(input, output, session) {
         current_clock(latest_record)
       }
     }, error = function(e) {
-      showNotification("初始化数据失败，请检查数据库连接！", type = "error")
+      showNotification(paste("初始化数据失败:", e$message), type = "error")
     })
   })
   
@@ -719,14 +718,36 @@ server <- function(input, output, session) {
   
   # 控制打卡按钮状态
   observe({
-    req(input$employee_name, input$work_type)
+    # 添加调试信息
+    cat("employee_name:", input$employee_name, "\n")
+    cat("work_type:", input$work_type, "\n")
+    
+    # 确保输入有效性
+    if (is.null(input$employee_name) || input$employee_name == "" || 
+        is.null(input$work_type) || input$work_type == "") {
+      shinyjs::disable("clock_in_out_btn")
+      updateActionButton(
+        session,
+        "clock_in_out_btn",
+        label = "打卡",
+        icon = icon("clock"),
+        class = "btn-lg btn-block"
+      )
+      return()
+    }
     
     # 检查是否有未结束的记录
     ongoing_record <- current_clock()
+    cat("ongoing_record:", if (is.null(ongoing_record)) "NULL" else ongoing_record$EmployeeName, "\n")
     
-    if (is.null(ongoing_record) && !is.null(input$employee_name) && input$employee_name != "" && 
-        !is.null(input$work_type) && input$work_type != "") {
-      # 无记录且选择完成，启用“工作开始”
+    # 检查薪酬是否存在
+    hourly_rate <- work_rates() %>% 
+      filter(EmployeeName == input$employee_name, WorkType == input$work_type) %>% 
+      pull(HourlyRate)
+    cat("hourly_rate:", if (length(hourly_rate) == 0) "未设置" else hourly_rate, "\n")
+    
+    if (is.null(ongoing_record) && length(hourly_rate) > 0) {
+      # 无记录且薪酬已设置，启用“工作开始”
       shinyjs::enable("clock_in_out_btn")
       updateActionButton(
         session,
@@ -746,7 +767,7 @@ server <- function(input, output, session) {
         class = "btn-lg btn-block btn-danger"
       )
     } else {
-      # 其他情况禁用按钮
+      # 其他情况（包括薪酬未设置）禁用按钮
       shinyjs::disable("clock_in_out_btn")
       updateActionButton(
         session,
@@ -766,68 +787,70 @@ server <- function(input, output, session) {
     work_type <- input$work_type
     ongoing_record <- current_clock()
     
-    dbWithTransaction(con, {
-      if (is.null(ongoing_record)) {
-        # 上班打卡
-        record_id <- uuid::UUIDgenerate()
-        clock_in_time <- Sys.time()
-        hourly_rate <- work_rates() %>% 
-          filter(EmployeeName == employee, WorkType == work_type) %>% 
-          pull(HourlyRate)
-        
-        if (length(hourly_rate) == 0) {
-          showNotification("该员工此工作类型的薪酬未设置，请联系管理员！", type = "error")
-          return()
+    tryCatch({
+      dbWithTransaction(con, {
+        if (is.null(ongoing_record)) {
+          # 上班打卡
+          record_id <- uuid::UUIDgenerate()
+          clock_in_time <- Sys.time()
+          hourly_rate <- work_rates() %>% 
+            filter(EmployeeName == employee, WorkType == work_type) %>% 
+            pull(HourlyRate)
+          
+          if (length(hourly_rate) == 0) {
+            showNotification("该员工此工作类型的薪酬未设置，请联系管理员！", type = "error")
+            return()
+          }
+          
+          dbExecute(
+            con,
+            "INSERT INTO clock_records (RecordID, EmployeeName, WorkType, ClockInTime, HourlyRate) VALUES (?, ?, ?, ?, ?)",
+            params = list(record_id, employee, work_type, clock_in_time, hourly_rate)
+          )
+          
+          current_clock(data.frame(
+            RecordID = record_id,
+            EmployeeName = employee,
+            WorkType = work_type,
+            ClockInTime = clock_in_time,
+            HourlyRate = hourly_rate
+          ))
+          
+          showNotification("工作开始！", type = "message")
+          playSuccessSound()
+        } else if (ongoing_record$EmployeeName == employee) {
+          # 下班打卡
+          record_id <- ongoing_record$RecordID
+          clock_out_time <- Sys.time()
+          hours_worked <- as.numeric(difftime(clock_out_time, ongoing_record$ClockInTime, units = "hours"))
+          total_pay <- round(hours_worked * ongoing_record$HourlyRate, 2)
+          
+          dbExecute(
+            con,
+            "UPDATE clock_records SET ClockOutTime = ?, TotalPay = ? WHERE RecordID = ?",
+            params = list(clock_out_time, total_pay, record_id)
+          )
+          
+          current_clock(NULL)
+          clock_records(dbGetQuery(con, "SELECT * FROM clock_records ORDER BY CreatedAt DESC"))
+          
+          showNotification(paste("工作结束！时长:", round(hours_worked, 2), "小时，薪酬:", total_pay, "元"), type = "message")
+          playSuccessSound()
         }
-        
-        dbExecute(
-          con,
-          "INSERT INTO clock_records (RecordID, EmployeeName, WorkType, ClockInTime, HourlyRate) VALUES (?, ?, ?, ?, ?)",
-          params = list(record_id, employee, work_type, clock_in_time, hourly_rate)
-        )
-        
-        # 更新当前打卡记录
-        current_clock(data.frame(
-          RecordID = record_id,
-          EmployeeName = employee,
-          WorkType = work_type,
-          ClockInTime = clock_in_time,
-          HourlyRate = hourly_rate
-        ))
-        
-        showNotification("工作开始！", type = "message")
-      } else if (ongoing_record$EmployeeName == employee) {
-        # 下班打卡
-        record_id <- ongoing_record$RecordID
-        clock_out_time <- Sys.time()
-        hours_worked <- as.numeric(difftime(clock_out_time, ongoing_record$ClockInTime, units = "hours"))
-        total_pay <- round(hours_worked * ongoing_record$HourlyRate, 2)
-        
-        dbExecute(
-          con,
-          "UPDATE clock_records SET ClockOutTime = ?, TotalPay = ? WHERE RecordID = ?",
-          params = list(clock_out_time, total_pay, record_id)
-        )
-        
-        # 清除当前打卡记录
-        current_clock(NULL)
-        
-        # 更新全局记录
-        clock_records(dbGetQuery(con, "SELECT * FROM clock_records ORDER BY CreatedAt DESC"))
-        
-        showNotification(paste("工作结束！时长:", round(hours_worked, 2), "小时，薪酬:", total_pay, "元"), type = "message")
-      }
+      })
+    }, error = function(e) {
+      showNotification(paste("打卡失败:", e$message), type = "error")
     })
   })
   
   # 实时计时器
   output$timer_display <- renderUI({
-    req(current_clock())
-    
-    # 每秒刷新一次
-    invalidateLater(1000, session)
-    
     ongoing_record <- current_clock()
+    if (is.null(ongoing_record)) {
+      return(tags$p("未开始工作", style = "font-size: 24px; color: #666; text-align: center; margin-top: 20px;"))
+    }
+    
+    invalidateLater(1000, session)
     elapsed_time <- as.numeric(difftime(Sys.time(), ongoing_record$ClockInTime, units = "secs"))
     
     hours <- floor(elapsed_time / 3600)
