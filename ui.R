@@ -165,7 +165,7 @@ ui <- navbarPage(
             selectInput(
               inputId = "work_type",
               label = "选择工作类型:",
-              choices = c("", "直播", "采购"),
+              choices = c("", "直播", "采购记录"),
               selected = "",
               width = "100%"
             ),
@@ -181,18 +181,30 @@ ui <- navbarPage(
               class = "card shadow-sm",
               style = "border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: #f9f9f9; margin-top: 20px;",
               tags$h4("手动补录打卡", style = "color: #28A745; margin-bottom: 10px;"),
-              datetimeInput(
-                inputId = "manual_clock_in",
-                label = "工作开始时间:",
+              dateInput(
+                inputId = "manual_date_in",
+                label = "工作开始日期:",
                 value = NULL,
-                format = "yyyy-MM-dd HH:mm:ss",
                 width = "100%"
               ),
-              datetimeInput(
-                inputId = "manual_clock_out",
-                label = "工作结束时间:",
+              timeInput(
+                inputId = "manual_time_in",
+                label = "工作开始时间:",
+                value = strptime("09:00:00", "%H:%M:%S"),
+                seconds = TRUE,
+                width = "100%"
+              ),
+              dateInput(
+                inputId = "manual_date_out",
+                label = "工作结束日期:",
                 value = NULL,
-                format = "yyyy-MM-dd HH:mm:ss",
+                width = "100%"
+              ),
+              timeInput(
+                inputId = "manual_time_out",
+                label = "工作结束时间:",
+                value = strptime("18:00:00", "%H:%M:%S"),
+                seconds = TRUE,
                 width = "100%",
                 placeholder = "留空表示未结束"
               ),
@@ -204,7 +216,7 @@ ui <- navbarPage(
         div(class = "main-panel",
             tags$h4("当前工作时长", style = "color: #007BFF; font-weight: bold; margin-bottom: 15px;"),
             uiOutput("timer_display"),
-            tags$h4("今日工作记录", style = "color: #007BFF; font-weight: bold; margin-top: 20px; margin-bottom: 15px;"),
+            tags$h4("当天工作记录", style = "color: #007BFF; font-weight: bold; margin-top: 20px; margin-bottom: 15px;"),
             DTOutput("today_work_records_table")
         )
     )
