@@ -190,8 +190,7 @@ ui <- navbarPage(
               timeInput(
                 inputId = "manual_time_in",
                 label = "工作开始时间:",
-                value = strptime("09:00:00", "%H:%M:%S"),
-                seconds = TRUE,
+                value = strptime("09:00", "%H:%M"),
                 width = "100%"
               ),
               dateInput(
@@ -203,8 +202,7 @@ ui <- navbarPage(
               timeInput(
                 inputId = "manual_time_out",
                 label = "工作结束时间:",
-                value = strptime("18:00:00", "%H:%M:%S"),
-                seconds = TRUE,
+                value = strptime("18:00", "%H:%M"),
                 width = "100%",
                 placeholder = "留空表示未结束"
               ),

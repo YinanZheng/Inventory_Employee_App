@@ -850,13 +850,13 @@ server <- function(input, output, session) {
     employee <- input$employee_name
     work_type <- input$work_type
     
-    # 拼接日期和时间
-    clock_in <- as.character(as.POSIXct(paste(input$manual_date_in, format(input$manual_time_in, "%H:%M:%S")), 
+    # 拼接日期和时间，补齐秒为 ":00"
+    clock_in <- as.character(as.POSIXct(paste(input$manual_date_in, format(input$manual_time_in, "%H:%M:00")), 
                                         format = "%Y-%m-%d %H:%M:%S", tz = "UTC"))
     clock_out <- if (is.null(input$manual_date_out) || is.null(input$manual_time_out) || input$manual_date_out == "" || input$manual_time_out == "") {
       NA
     } else {
-      as.character(as.POSIXct(paste(input$manual_date_out, format(input$manual_time_out, "%H:%M:%S")), 
+      as.character(as.POSIXct(paste(input$manual_date_out, format(input$manual_time_out, "%H:%M:00")), 
                               format = "%Y-%m-%d %H:%M:%S", tz = "UTC"))
     }
     
@@ -906,9 +906,9 @@ server <- function(input, output, session) {
         
         # 清空输入框
         updateDateInput(session, "manual_date_in", value = NULL)
-        updateTimeInput(session, "manual_time_in", value = strptime("09:00:00", "%H:%M:%S"))
+        updateTimeInput(session, "manual_time_in", value = strptime("09:00", "%H:%M"))
         updateDateInput(session, "manual_date_out", value = NULL)
-        updateTimeInput(session, "manual_time_out", value = strptime("18:00:00", "%H:%M:%S"))
+        updateTimeInput(session, "manual_time_out", value = strptime("18:00", "%H:%M"))
       })
     }, error = function(e) {
       showNotification(paste("手动补录失败:", e$message), type = "error")
