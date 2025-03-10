@@ -203,8 +203,7 @@ ui <- navbarPage(
                 inputId = "manual_time_out",
                 label = "工作结束时间:",
                 value = strptime("18:00", "%H:%M"),
-                width = "100%",
-                placeholder = "留空表示未结束"
+                width = "100%"
               ),
               actionButton("submit_manual_clock", "提交补录", icon = icon("save"), class = "btn-success", 
                            style = "width: 100%; margin-top: 10px;")
