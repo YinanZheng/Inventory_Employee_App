@@ -661,14 +661,12 @@ server <- function(input, output, session) {
   ####################################################################################################################################
   
   observeEvent(input$refresh_item_table, {
-    isolate({
-      unique_items_data_refresh_trigger(!unique_items_data_refresh_trigger())  # 触发数据刷新
-      orders_refresh_trigger(!orders_refresh_trigger()) # 触发 orders 数据刷新
-      refreshTransactionTable("买货卡", cache_env, transaction_table_hash, output, con)
-      refreshTransactionTable("工资卡", cache_env, transaction_table_hash, output, con)
-      refreshTransactionTable("美元卡", cache_env, transaction_table_hash, output, con)
-      refreshTransactionTable("一般户卡", cache_env, transaction_table_hash, output, con)
-    })
+    unique_items_data_refresh_trigger(!unique_items_data_refresh_trigger())  # 触发数据刷新
+    orders_refresh_trigger(!orders_refresh_trigger()) # 触发 orders 数据刷新
+    refreshTransactionTable("买货卡", cache_env, transaction_table_hash, output, con)
+    refreshTransactionTable("工资卡", cache_env, transaction_table_hash, output, con)
+    refreshTransactionTable("美元卡", cache_env, transaction_table_hash, output, con)
+    refreshTransactionTable("一般户卡", cache_env, transaction_table_hash, output, con)
   })
   
   ####################################################################################################################################
