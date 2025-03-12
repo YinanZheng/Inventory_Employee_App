@@ -1303,12 +1303,14 @@ server <- function(input, output, session) {
       column_mapping = column_mapping,
       selection = "multiple",
       image_column = "ItemImagePath",
-      options = list(fixedHeader = TRUE,
-                     dom = 't',
-                     paging = FALSE,
-                     searching = FALSE)
+      options = list(
+        fixedHeader = TRUE,
+        dom = 't',
+        paging = FALSE,
+        searching = FALSE
+      )
     )$datatable
-  })
+  }, server = FALSE)
   
   # 添加/更新物品
   observeEvent(input$add_btn, {
@@ -1573,23 +1575,57 @@ server <- function(input, output, session) {
     
     selected_row <- input$added_items_table_rows_selected
     
-    if (length(selected_row) > 0) {
-      current_items <- dbGetQuery(con, "SELECT * FROM shopping_cart")
+    if (length(selected_row) == 0) {
+      showNotification("未选中任何记录，无法删除", type = "error")
+      return()
+    }
+    
+    tryCatch({
+      # 获取当前数据
+      current_items <- dbGetQuery(con, "SELECT * FROM shopping_cart WHERE SystemType = ?", 
+                                  params = list(system_type))
       
+      if (nrow(current_items) == 0) {
+        showNotification("采购箱为空，无记录可删除", type = "warning")
+        added_items(current_items)
+        return()
+      }
+      
+      # 提取选中行的 SKU
       selected_skus <- current_items$SKU[selected_row]
       
-      # 动态构造占位符
+      if (length(selected_skus) == 0) {
+        showNotification("所选记录不存在，请刷新页面后重试", type = "error")
+        return()
+      }
+      
+      # 动态构造删除查询
       placeholders <- paste(rep("?", length(selected_skus)), collapse = ",")
       query <- sprintf("DELETE FROM shopping_cart WHERE SKU IN (%s) AND SystemType = ?", placeholders)
-      dbExecute(con, query, params = c(selected_skus, system_type))
       
-      # 更新 added_items UI
-      added_items(dbGetQuery(con, "SELECT * FROM shopping_cart WHERE SystemType = ?", params = list(system_type)))    
+      # 执行删除并检查影响行数
+      affected_rows <- dbExecute(con, query, params = c(selected_skus, system_type))
       
-      showNotification("选中的记录已成功删除", type = "message")
-    } else {
-      showNotification("请选择要删除的记录", type = "error")
-    }
+      if (affected_rows == 0) {
+        showNotification("删除失败，记录可能已被其他用户修改", type = "error")
+        return()
+      }
+      
+      # 更新 added_items 并延迟刷新，确保 UI 同步
+      updated_items <- dbGetQuery(con, "SELECT * FROM shopping_cart WHERE SystemType = ?", 
+                                  params = list(system_type))
+      added_items(updated_items)
+      
+      showNotification(sprintf("成功删除 %d 条记录", affected_rows), type = "message")
+      
+    }, error = function(e) {
+      showNotification(paste("删除失败:", e$message), type = "error")
+      
+      # 出错时强制刷新 added_items
+      updated_items <- dbGetQuery(con, "SELECT * FROM shopping_cart WHERE SystemType = ?", 
+                                  params = list(system_type))
+      added_items(updated_items)
+    })
   })
   
   # 清空输入
