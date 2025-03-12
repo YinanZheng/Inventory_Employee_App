@@ -427,6 +427,7 @@ server <- function(input, output, session) {
       maker_input_id = "manage_filter-maker",
       status_input_id = "manage_filter-status",
       item_name_input_id = "manage_filter-name",
+      sku_input_id = "manage_filter-sku",
       purchase_date_range_id = "manage_filter-purchase_date_range"
     )
     
