@@ -1497,6 +1497,19 @@ server <- function(input, output, session) {
   ##                                                            ##
   ################################################################
   
+  # 获取购物车数据
+  get_shopping_cart <- reactive({
+    dbGetQuery(con, "SELECT * FROM shopping_cart")
+  })
+  
+  # 初始化 added_items
+  added_items <- reactiveVal(create_empty_inventory())
+  
+  # 加载购物车初始数据
+  observe({
+    added_items(dbGetQuery(con, "SELECT * FROM shopping_cart"))
+  })
+  
   # 物品表过滤模块
   itemFilterServer(
     id = "purchase_filter",
@@ -1679,6 +1692,30 @@ server <- function(input, output, session) {
   added_items <- reactiveVal(create_empty_inventory())
   
   # Render added items table
+  # output$added_items_table <- renderDT({
+  #   column_mapping <- list(
+  #     SKU = "条形码",
+  #     ItemName = "商品名",
+  #     ItemImagePath = "商品图",
+  #     Maker = "供应商",
+  #     MajorType = "大类",
+  #     Quantity = "入库数量",
+  #     ProductCost = "采购单价"
+  #   )
+  #   
+  #   render_table_with_images(
+  #     data = added_items(),
+  #     column_mapping = column_mapping,
+  #     selection = "multiple",
+  #     image_column = "ItemImagePath",
+  #     options = list(fixedHeader = TRUE,  # 启用表头固定
+  #                    dom = 't',  # 隐藏搜索框和分页等控件
+  #                    paging = FALSE,  # 禁止分页
+  #                    searching = FALSE  # 禁止搜索
+  #     )
+  #   )$datatable
+  # })
+  # 
   output$added_items_table <- renderDT({
     column_mapping <- list(
       SKU = "条形码",
@@ -1695,17 +1732,98 @@ server <- function(input, output, session) {
       column_mapping = column_mapping,
       selection = "multiple",
       image_column = "ItemImagePath",
-      options = list(fixedHeader = TRUE,  # 启用表头固定
-                     dom = 't',  # 隐藏搜索框和分页等控件
-                     paging = FALSE,  # 禁止分页
-                     searching = FALSE  # 禁止搜索
-      )
+      options = list(fixedHeader = TRUE,
+                     dom = 't',
+                     paging = FALSE,
+                     searching = FALSE)
     )$datatable
   })
   
   # Handle add item button click
+  # observeEvent(input$add_btn, {
+  #   # 验证输入
+  #   if (is.null(input[["purchase-item_name"]]) || input[["purchase-item_name"]] == "") {
+  #     showNotification("请填写正确商品名称！", type = "error")
+  #     return()
+  #   }
+  #   if (is.null(input$new_quantity) || input$new_quantity <= 0) {
+  #     showNotification("请填写正确商品数量！", type = "error")
+  #     return()
+  #   }
+  #   if (is.null(input$new_product_cost) || input$new_product_cost < 0 || input$new_product_cost > 999) {
+  #     showNotification("请填写正确商品单价！", type = "error")
+  #     return()
+  #   }
+  #   if (is.null(input$new_sku) || input$new_sku == "") {
+  #     showNotification("请确保SKU正常显示！", type = "error")
+  #     return()
+  #   }
+  #   
+  #   # 检查是否存在该 SKU 的库存记录
+  #   inventory_item <- tryCatch({
+  #     dbGetQuery(con, "SELECT ItemImagePath FROM inventory WHERE SKU = ?", params = list(input$new_sku))
+  #   }, error = function(e) {
+  #     showNotification("检查库存时发生错误！", type = "error")
+  #     return(data.frame())
+  #   })
+  #   
+  #   existing_inventory_path <- if (nrow(inventory_item) > 0) inventory_item$ItemImagePath[1] else NULL
+  #   
+  #   # 上传或粘贴图片处理
+  #   new_image_path <- process_image_upload(
+  #     sku = input$new_sku,
+  #     file_data = image_purchase$uploaded_file(),
+  #     pasted_data = image_purchase$pasted_file(),
+  #     inventory_path = existing_inventory_path
+  #   )
+  #   
+  #   # 添加或更新记录
+  #   existing_items <- added_items()
+  #   existing_skus <- existing_items$SKU
+  #   if (input$new_sku %in% existing_skus) {
+  #     sku_index <- which(existing_skus == input$new_sku)
+  #     current_image_path <- existing_items$ItemImagePath[sku_index]
+  #     final_image_path <- if (!is.na(new_image_path) && new_image_path != "") {
+  #       new_image_path
+  #     } else {
+  #       current_image_path
+  #     }
+  #     
+  #     existing_items[sku_index, "SKU"] <- input$new_sku
+  #     existing_items[sku_index, "Maker"] <- input$new_maker
+  #     existing_items[sku_index, "MajorType"] <- input[["type_module-new_major_type"]]
+  #     existing_items[sku_index, "ItemName"] <- input[["purchase-item_name"]]
+  #     existing_items[sku_index, "Quantity"] <- input$new_quantity
+  #     existing_items[sku_index, "ProductCost"] <- round(input$new_product_cost, 2)
+  #     existing_items[sku_index, "ItemImagePath"] <- as.character(final_image_path)
+  #     
+  #     added_items(existing_items)
+  #     
+  #     showNotification(paste("SKU 已更新:", input$new_sku, "已覆盖旧记录"), type = "message")
+  #   } else {
+  #     # 添加新记录
+  #     new_item <- data.frame(
+  #       SKU = input$new_sku,
+  #       Maker = input$new_maker,
+  #       MajorType = input[["type_module-new_major_type"]],
+  #       MinorType = "",
+  #       ItemName = input[["purchase-item_name"]],
+  #       Quantity = input$new_quantity,
+  #       ProductCost = round(input$new_product_cost, 2),
+  #       ItemImagePath = new_image_path,
+  #       stringsAsFactors = FALSE
+  #     )
+  #     added_items(bind_rows(existing_items, new_item))
+  #     showNotification(paste("SKU 已添加:", input$new_sku, "商品名:", input[["purchase-item_name"]]), type = "message")
+  #   }
+  #   
+  #   # 重置
+  #   image_purchase$reset()
+  # })
+  
+  # 添加/更新物品
   observeEvent(input$add_btn, {
-    # 验证输入
+    # 输入验证（保持不变）
     if (is.null(input[["purchase-item_name"]]) || input[["purchase-item_name"]] == "") {
       showNotification("请填写正确商品名称！", type = "error")
       return()
@@ -1723,17 +1841,10 @@ server <- function(input, output, session) {
       return()
     }
     
-    # 检查是否存在该 SKU 的库存记录
-    inventory_item <- tryCatch({
-      dbGetQuery(con, "SELECT ItemImagePath FROM inventory WHERE SKU = ?", params = list(input$new_sku))
-    }, error = function(e) {
-      showNotification("检查库存时发生错误！", type = "error")
-      return(data.frame())
-    })
-    
+    # 处理图片上传
+    inventory_item <- dbGetQuery(con, "SELECT ItemImagePath FROM inventory WHERE SKU = ?", 
+                                 params = list(input$new_sku))
     existing_inventory_path <- if (nrow(inventory_item) > 0) inventory_item$ItemImagePath[1] else NULL
-    
-    # 上传或粘贴图片处理
     new_image_path <- process_image_upload(
       sku = input$new_sku,
       file_data = image_purchase$uploaded_file(),
@@ -1741,47 +1852,52 @@ server <- function(input, output, session) {
       inventory_path = existing_inventory_path
     )
     
-    # 添加或更新记录
-    existing_items <- added_items()
-    existing_skus <- existing_items$SKU
-    if (input$new_sku %in% existing_skus) {
-      sku_index <- which(existing_skus == input$new_sku)
-      current_image_path <- existing_items$ItemImagePath[sku_index]
-      final_image_path <- if (!is.na(new_image_path) && new_image_path != "") {
-        new_image_path
-      } else {
-        current_image_path
-      }
-      
-      existing_items[sku_index, "SKU"] <- input$new_sku
-      existing_items[sku_index, "Maker"] <- input$new_maker
-      existing_items[sku_index, "MajorType"] <- input[["type_module-new_major_type"]]
-      existing_items[sku_index, "ItemName"] <- input[["purchase-item_name"]]
-      existing_items[sku_index, "Quantity"] <- input$new_quantity
-      existing_items[sku_index, "ProductCost"] <- round(input$new_product_cost, 2)
-      existing_items[sku_index, "ItemImagePath"] <- as.character(final_image_path)
-      
-      added_items(existing_items)
-      
-      showNotification(paste("SKU 已更新:", input$new_sku, "已覆盖旧记录"), type = "message")
+    # 检查是否已存在记录并获取当前图片路径
+    existing <- dbGetQuery(con, "SELECT ItemImagePath FROM shopping_cart WHERE SKU = ?", 
+                           params = list(input$new_sku))
+    
+    # 确定最终使用的图片路径
+    final_image_path <- if (nrow(existing) > 0) {
+      current_image_path <- existing$ItemImagePath[1]
+      if (!is.na(new_image_path) && new_image_path != "") new_image_path else current_image_path
     } else {
-      # 添加新记录
-      new_item <- data.frame(
-        SKU = input$new_sku,
-        Maker = input$new_maker,
-        MajorType = input[["type_module-new_major_type"]],
-        MinorType = "",
-        ItemName = input[["purchase-item_name"]],
-        Quantity = input$new_quantity,
-        ProductCost = round(input$new_product_cost, 2),
-        ItemImagePath = new_image_path,
-        stringsAsFactors = FALSE
-      )
-      added_items(bind_rows(existing_items, new_item))
-      showNotification(paste("SKU 已添加:", input$new_sku, "商品名:", input[["purchase-item_name"]]), type = "message")
+      new_image_path
     }
     
-    # 重置
+    # 创建新记录
+    new_item <- data.frame(
+      SKU = input$new_sku,
+      Maker = input$new_maker,
+      MajorType = input[["type_module-new_major_type"]],
+      MinorType = "",
+      ItemName = input[["purchase-item_name"]],
+      Quantity = input$new_quantity,
+      ProductCost = round(input$new_product_cost, 2),
+      ItemImagePath = final_image_path,
+      stringsAsFactors = FALSE
+    )
+    
+    if (nrow(existing) > 0) {
+      # 更新记录
+      dbExecute(con, "
+      UPDATE shopping_cart 
+      SET Maker = ?, MajorType = ?, MinorType = ?, ItemName = ?, 
+          Quantity = ?, ProductCost = ?, ItemImagePath = ?
+      WHERE SKU = ?",
+                params = list(new_item$Maker, new_item$MajorType, new_item$MinorType,
+                              new_item$ItemName, new_item$Quantity, new_item$ProductCost,
+                              new_item$ItemImagePath, new_item$SKU))
+      showNotification(paste("SKU 已更新:", input$new_sku), type = "message")
+    } else {
+      # 插入新记录
+      dbWriteTable(con, "shopping_cart", new_item, append = TRUE, row.names = FALSE)
+      showNotification(paste("SKU 已添加:", input$new_sku), type = "message")
+    }
+    
+    # 更新 added_items
+    added_items(dbGetQuery(con, "SELECT * FROM shopping_cart"))
+    
+    # 重置表单
     image_purchase$reset()
   })
   
@@ -1810,6 +1926,91 @@ server <- function(input, output, session) {
   })
   
   # Confirm button: Update database and handle images
+  # observeEvent(input$confirm_btn, {
+  #   tryCatch({
+  #     if (nrow(added_items()) == 0) {
+  #       showNotification("请先录入至少一个商品!", type = "error")
+  #       return()
+  #     }
+  #     
+  #     added_items_df <- added_items()
+  #     
+  #     dbBegin(con)
+  #     
+  #     # 批量插入库存记录
+  #     inventory_success <- add_new_inventory_records_batch(con, added_items_df)
+  #     if (isFALSE(inventory_success)) {
+  #       dbRollback(con)
+  #       showNotification("库存登记失败，请检查输入数据！", type = "error")
+  #       return()
+  #     }
+  #     
+  #     # 更新 UI
+  #     inventory_refresh_trigger(!inventory_refresh_trigger())
+  #     
+  #     # 准备 unique_items 数据
+  #     purchase_date <- format(as.Date(input$purchase_date), "%Y-%m-%d")
+  #     
+  #     # 计算运费
+  #     total_shipping_cost <- input$new_shipping_cost
+  #     if (is.null(total_shipping_cost) || total_shipping_cost <= 0) {
+  #       total_shipping_cost <- 0
+  #     }
+  #     total_quantity <- sum(added_items_df$Quantity)
+  #     unit_shipping_cost <- if (total_quantity > 0) total_shipping_cost / total_quantity else 0
+  #     
+  #     batch_data <- do.call(rbind, lapply(1:nrow(added_items_df), function(i) {
+  #       sku <- added_items_df$SKU[i]
+  #       quantity <- added_items_df$Quantity[i]
+  #       product_cost <- added_items_df$ProductCost[i]
+  #       
+  #       t(replicate(quantity, c(
+  #         uuid::UUIDgenerate(),
+  #         as.character(sku),
+  #         as.numeric(product_cost),
+  #         as.numeric(unit_shipping_cost),
+  #         "采购",
+  #         "未知",
+  #         purchase_date
+  #       )))
+  #     }))
+  #     
+  #     if (is.null(batch_data) || nrow(batch_data) == 0) {
+  #       dbRollback(con)
+  #       showNotification("采购数据无效，请检查输入！", type = "error")
+  #       return()
+  #     }
+  #     
+  #     # 转换为数据框并命名列
+  #     batch_data <- as.data.frame(batch_data, stringsAsFactors = FALSE)
+  #     colnames(batch_data) <- c("UniqueID", "SKU", "ProductCost", "DomesticShippingCost", 
+  #                               "Status", "Defect", "PurchaseTime")
+  #     
+  #     # 批量插入 unique_items
+  #     tryCatch({
+  #       dbWriteTable(con, "unique_items", batch_data, append = TRUE, row.names = FALSE)
+  #       dbCommit(con)
+  #       showNotification("所有采购货物已成功登记！", type = "message")
+  #     }, error = function(e) {
+  #       dbRollback(con)
+  #       showNotification(paste("采购登记失败:", e$message), type = "error")
+  #       return()
+  #     })
+  #     
+  #     # 重置输入字段
+  #     updateNumericInput(session, "new_quantity", value = 0)
+  #     updateNumericInput(session, "new_product_cost", value = 0)
+  #     updateNumericInput(session, "new_shipping_cost", value = 0)
+  #     updateTextInput(session, "purchase-item_name", value = "")
+  #     image_purchase$reset()
+  #     added_items(create_empty_inventory())
+  #     
+  #   }, error = function(e) {
+  #     dbRollback(con)  # 确保外层错误也能回滚
+  #     showNotification(paste("采购登记发生错误:", e$message), type = "error")
+  #   })
+  # })
+  # 
   observeEvent(input$confirm_btn, {
     tryCatch({
       if (nrow(added_items()) == 0) {
@@ -1818,7 +2019,6 @@ server <- function(input, output, session) {
       }
       
       added_items_df <- added_items()
-      
       dbBegin(con)
       
       # 批量插入库存记录
@@ -1834,12 +2034,8 @@ server <- function(input, output, session) {
       
       # 准备 unique_items 数据
       purchase_date <- format(as.Date(input$purchase_date), "%Y-%m-%d")
-      
-      # 计算运费
       total_shipping_cost <- input$new_shipping_cost
-      if (is.null(total_shipping_cost) || total_shipping_cost <= 0) {
-        total_shipping_cost <- 0
-      }
+      if (is.null(total_shipping_cost) || total_shipping_cost <= 0) total_shipping_cost <- 0
       total_quantity <- sum(added_items_df$Quantity)
       unit_shipping_cost <- if (total_quantity > 0) total_shipping_cost / total_quantity else 0
       
@@ -1847,7 +2043,6 @@ server <- function(input, output, session) {
         sku <- added_items_df$SKU[i]
         quantity <- added_items_df$Quantity[i]
         product_cost <- added_items_df$ProductCost[i]
-        
         t(replicate(quantity, c(
           uuid::UUIDgenerate(),
           as.character(sku),
@@ -1859,39 +2054,30 @@ server <- function(input, output, session) {
         )))
       }))
       
-      if (is.null(batch_data) || nrow(batch_data) == 0) {
-        dbRollback(con)
-        showNotification("采购数据无效，请检查输入！", type = "error")
-        return()
-      }
-      
-      # 转换为数据框并命名列
       batch_data <- as.data.frame(batch_data, stringsAsFactors = FALSE)
       colnames(batch_data) <- c("UniqueID", "SKU", "ProductCost", "DomesticShippingCost", 
                                 "Status", "Defect", "PurchaseTime")
       
-      # 批量插入 unique_items
-      tryCatch({
-        dbWriteTable(con, "unique_items", batch_data, append = TRUE, row.names = FALSE)
-        dbCommit(con)
-        showNotification("所有采购货物已成功登记！", type = "message")
-      }, error = function(e) {
-        dbRollback(con)
-        showNotification(paste("采购登记失败:", e$message), type = "error")
-        return()
-      })
+      dbWriteTable(con, "unique_items", batch_data, append = TRUE, row.names = FALSE)
       
-      # 重置输入字段
+      # 清空购物车
+      dbExecute(con, "DELETE FROM shopping_cart")
+      dbCommit(con)
+      
+      # 更新 UI
+      added_items(get_shopping_cart())
+      showNotification("所有采购货物已成功登记！", type = "message")
+      
+      # 重置输入
       updateNumericInput(session, "new_quantity", value = 0)
       updateNumericInput(session, "new_product_cost", value = 0)
       updateNumericInput(session, "new_shipping_cost", value = 0)
       updateTextInput(session, "purchase-item_name", value = "")
       image_purchase$reset()
-      added_items(create_empty_inventory())
       
     }, error = function(e) {
-      dbRollback(con)  # 确保外层错误也能回滚
-      showNotification(paste("采购登记发生错误:", e$message), type = "error")
+      dbRollback(con)
+      showNotification(paste("采购登记失败:", e$message), type = "error")
     })
   })
   
@@ -1978,29 +2164,54 @@ server <- function(input, output, session) {
   })
   
   # 确认删除逻辑
+  # observeEvent(input$confirm_delete_selected, {
+  #   removeModal()  # 关闭确认弹窗
+  #   
+  #   selected_row <- input$added_items_table_rows_selected
+  #   
+  #   tryCatch({
+  #     if (length(selected_row) > 0) {
+  #       # 执行删除逻辑
+  #       current_items <- added_items()
+  #       updated_items <- current_items[-selected_row, ]  # 删除选中行
+  #       added_items(updated_items)  # 更新 reactive 值
+  #       
+  #       # 通知用户
+  #       showNotification("选中的记录已成功删除", type = "message")
+  #     } else {
+  #       showNotification("请选择要删除的记录", type = "error")
+  #     }
+  #   }, error = function(e) {
+  #     # 捕获错误并通知用户
+  #     showNotification(paste("删除失败：", e$message), type = "error")
+  #   })
+  # })
+  
   observeEvent(input$confirm_delete_selected, {
-    removeModal()  # 关闭确认弹窗
+    removeModal()
     
     selected_row <- input$added_items_table_rows_selected
     
-    tryCatch({
-      if (length(selected_row) > 0) {
-        # 执行删除逻辑
-        current_items <- added_items()
-        updated_items <- current_items[-selected_row, ]  # 删除选中行
-        added_items(updated_items)  # 更新 reactive 值
-        
-        # 通知用户
-        showNotification("选中的记录已成功删除", type = "message")
-      } else {
-        showNotification("请选择要删除的记录", type = "error")
-      }
-    }, error = function(e) {
-      # 捕获错误并通知用户
-      showNotification(paste("删除失败：", e$message), type = "error")
-    })
+    if (length(selected_row) > 0) {
+      current_items <- get_shopping_cart()
+      selected_skus <- current_items$SKU[selected_row]
+      
+      # 动态构造占位符
+      placeholders <- paste(rep("?", length(selected_skus)), collapse = ",")
+      query <- sprintf("DELETE FROM shopping_cart WHERE SKU IN (%s)", placeholders)
+      
+      # 执行删除
+      dbExecute(con, query, params = selected_skus)
+      
+      # 更新 added_items
+      updated_data <- dbGetQuery(con, "SELECT * FROM shopping_cart")
+      added_items(updated_data)
+      
+      showNotification("选中的记录已成功删除", type = "message")
+    } else {
+      showNotification("请选择要删除的记录", type = "error")
+    }
   })
-  
   
   # 清空输入
   observeEvent(input$reset_btn, {
