@@ -1106,8 +1106,7 @@ server <- function(input, output, session) {
   
   # 加载购物车初始数据
   observe({
-    added_items(dbGetQuery(con, "SELECT * FROM shopping_cart WHERE SystemType = ?", 
-                           params = list(system_type)))
+    added_items(dbGetQuery(con, "SELECT * FROM shopping_cart WHERE SystemType = ?", params = list(system_type)))
   })
   
   # 物品表过滤模块
@@ -1386,7 +1385,7 @@ server <- function(input, output, session) {
     }
     
     # 更新 added_items
-    added_items(dbGetQuery(con, "SELECT * FROM shopping_cart"))
+    added_items(dbGetQuery(con, "SELECT * FROM shopping_cart WHERE SystemType = ?", params = list(system_type)))    
     
     # 重置表单
     image_purchase$reset()
@@ -1470,7 +1469,7 @@ server <- function(input, output, session) {
       dbCommit(con)
       
       # 更新 UI
-      added_items(dbGetQuery(con, "SELECT * FROM shopping_cart"))
+      added_items(dbGetQuery(con, "SELECT * FROM shopping_cart WHERE SystemType = ?", params = list(system_type)))    
       showNotification("所有采购货物已成功登记！", type = "message")
       
       # 重置输入
@@ -1585,7 +1584,7 @@ server <- function(input, output, session) {
       dbExecute(con, query, params = c(selected_skus, system_type))
       
       # 更新 added_items UI
-      added_items(dbGetQuery(con, "SELECT * FROM shopping_cart"))
+      added_items(dbGetQuery(con, "SELECT * FROM shopping_cart WHERE SystemType = ?", params = list(system_type)))    
       
       showNotification("选中的记录已成功删除", type = "message")
     } else {
