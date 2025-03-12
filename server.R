@@ -250,169 +250,169 @@ server <- function(input, output, session) {
     
     data
   })
-  
-  # 入库页过滤
-  filtered_unique_items_data_inbound <- reactive({
-    req(unique_items_data())
-    data <- unique_items_data()
-    
-    # 只显示本页相关状态
-    data <- data %>%
-      filter(Status %in% c("采购", "国内入库"))
-    
-    data <- filter_unique_items_data_by_inputs(
-      data = data,
-      input = input,
-      maker_input_id = "inbound_filter-maker",
-      status_input_id = "inbound_filter-status",
-      item_name_input_id = "inbound_filter-name",
-      sku_input_id = "inbound_filter-sku",
-      purchase_date_range_id = "inbound_filter-purchase_date_range"
-    )
-    
-    # 统计 SKU, Status, Defect, 和 PurchaseTime 下的数量
-    data <- data %>%
-      group_by(SKU, Status, Defect, PurchaseTime) %>%
-      mutate(ItemCount = n()) %>%  # 条件统计数量
-      ungroup()
-    
-    # 去重：仅保留每个 SKU 和组合的第一条记录
-    data <- data %>%
-      arrange(desc(updated_at)) %>%  # 按需求排序
-      distinct(SKU, Status, Defect, PurchaseTime, .keep_all = TRUE)         # 去重，保留所有列
-    
-    data
-  })
-  
-  # 出库页过滤
-  filtered_unique_items_data_outbound <- reactive({
-    req(unique_items_data())
-    data <- unique_items_data()
-    
-    # 只显示本页相关状态
-    data <- data %>%
-      filter(Status %in% c("国内入库", "国内出库"), Defect != "瑕疵")
-    
-    data <- filter_unique_items_data_by_inputs(
-      data = data,
-      input = input,
-      maker_input_id = "outbound_filter-maker",
-      status_input_id = "outbound_filter-status",
-      item_name_input_id = "outbound_filter-name",
-      purchase_date_range_id = "outbound_filter-purchase_date_range"
-    )
-    
-    # 统计 SKU, Status, 和 PurchaseTime 下的数量（仅统计非瑕疵状态）
-    data <- data %>%
-      group_by(SKU, Status, PurchaseTime) %>%
-      mutate(ItemCount = n()) %>%  # 条件统计数量
-      ungroup()
-    
-    # 去重：仅保留每个 SKU 和组合的第一条记录
-    data <- data %>%
-      arrange(desc(updated_at)) %>%  # 按需求排序
-      distinct(SKU, Status, PurchaseTime, .keep_all = TRUE)         # 去重，保留所有列
-    
-    data
-  })
-  
-  # 售出-物品售出分页过滤
-  filtered_unique_items_data_sold <- reactive({
-    req(unique_items_data())
-    data <- unique_items_data()
-    
-    # 只显示本页相关状态
-    data <- data %>%
-      filter(Status %in% c("国内入库", "国内出库", "美国入库", "美国调货", "国内售出"), Defect != "瑕疵")
-
-    data <- filter_unique_items_data_by_inputs(
-      data = data,
-      input = input,
-      maker_input_id = "sold_filter-maker",
-      status_input_id = "sold_filter-status",
-      item_name_input_id = "sold_filter-name",
-      purchase_date_range_id = "sold_filter-purchase_date_range"
-    )
-    
-    # 统计 SKU, Status, 和 PurchaseTime 下的数量（仅统计非瑕疵状态）
-    data <- data %>%
-      group_by(SKU, Status, PurchaseTime) %>%
-      mutate(ItemCount = n()) %>%  # 条件统计数量
-      ungroup()
-    
-    
-    # 去重：仅保留每个 SKU 和组合的第一条记录
-    data <- data %>%
-      arrange(desc(updated_at)) %>%  # 按需求排序
-      distinct(SKU, Status, PurchaseTime, .keep_all = TRUE)         # 去重，保留所有列
-    
-    data
-  })
-  
-  # Define debounced input for the combined search field
-  debounced_filter_combined <- debounce(
-    reactive({ trimws(input$filter_combined) }),  # Trim whitespace from input
-    millis = 500  # Set debounce delay to 500 milliseconds
-  )
-  
-  filtered_orders <- reactive({
-    req(orders())  # Ensure order data exists
-    
-    data <- orders()  # Get all order data
-    
-    # Combined filter logic with debouncing
-    search_term <- debounced_filter_combined()
-    if (!is.null(search_term) && length(search_term) > 0 && nzchar(search_term)) {
-      # Filter across multiple fields using OR logic
-      data <- data %>% filter(
-        grepl(search_term, OrderID, ignore.case = TRUE) |
-          grepl(search_term, UsTrackingNumber, ignore.case = TRUE) |
-          grepl(search_term, CustomerName, ignore.case = TRUE) |
-          grepl(search_term, CustomerNetName, ignore.case = TRUE) |
-          grepl(search_term, OrderNotes, ignore.case = TRUE)
-      )
-      
-      # Handle SKU and ItemName filtering using unique_items_data
-      req(unique_items_data())
-      sku_or_item_orders <- unique_items_data() %>%
-        filter(
-          grepl(search_term, SKU, ignore.case = TRUE) |
-            grepl(search_term, ItemName, ignore.case = TRUE)
-        ) %>%
-        pull(OrderID) %>%
-        unique()
-      
-      # Combine orders matching SKU or ItemName
-      data <- data %>% filter(OrderID %in% sku_or_item_orders | 
-                                grepl(search_term, OrderID, ignore.case = TRUE) |
-                                grepl(search_term, UsTrackingNumber, ignore.case = TRUE) |
-                                grepl(search_term, CustomerName, ignore.case = TRUE) |
-                                grepl(search_term, CustomerNetName, ignore.case = TRUE) |
-                                grepl(search_term, OrderNotes, ignore.case = TRUE))
-    }
-    
-    # Filter by platform
-    if (!is.null(input$filter_platform) && input$filter_platform != "") {
-      data <- data %>% filter(Platform == input$filter_platform)
-    }
-    
-    # Filter by order status
-    if (!is.null(input$filter_order_status) && input$filter_order_status != "") {
-      data <- data %>% filter(OrderStatus == input$filter_order_status)
-    }
-    
-    # Filter by creation date
-    if (!is.null(input$filter_order_date) && !is.null(input$filter_order_date[[1]]) && !is.null(input$filter_order_date[[2]])) {
-      start_date <- input$filter_order_date[[1]]
-      end_date <- input$filter_order_date[[2]]
-      data <- data %>% filter(created_at >= start_date & created_at <= end_date)
-    }
-    
-    # Sort by creation date in descending order
-    data <- data %>% arrange(desc(created_at))
-    
-    data
-  })
+  # 
+  # # 入库页过滤
+  # filtered_unique_items_data_inbound <- reactive({
+  #   req(unique_items_data())
+  #   data <- unique_items_data()
+  #   
+  #   # 只显示本页相关状态
+  #   data <- data %>%
+  #     filter(Status %in% c("采购", "国内入库"))
+  #   
+  #   data <- filter_unique_items_data_by_inputs(
+  #     data = data,
+  #     input = input,
+  #     maker_input_id = "inbound_filter-maker",
+  #     status_input_id = "inbound_filter-status",
+  #     item_name_input_id = "inbound_filter-name",
+  #     sku_input_id = "inbound_filter-sku",
+  #     purchase_date_range_id = "inbound_filter-purchase_date_range"
+  #   )
+  #   
+  #   # 统计 SKU, Status, Defect, 和 PurchaseTime 下的数量
+  #   data <- data %>%
+  #     group_by(SKU, Status, Defect, PurchaseTime) %>%
+  #     mutate(ItemCount = n()) %>%  # 条件统计数量
+  #     ungroup()
+  #   
+  #   # 去重：仅保留每个 SKU 和组合的第一条记录
+  #   data <- data %>%
+  #     arrange(desc(updated_at)) %>%  # 按需求排序
+  #     distinct(SKU, Status, Defect, PurchaseTime, .keep_all = TRUE)         # 去重，保留所有列
+  #   
+  #   data
+  # })
+  # 
+  # # 出库页过滤
+  # filtered_unique_items_data_outbound <- reactive({
+  #   req(unique_items_data())
+  #   data <- unique_items_data()
+  #   
+  #   # 只显示本页相关状态
+  #   data <- data %>%
+  #     filter(Status %in% c("国内入库", "国内出库"), Defect != "瑕疵")
+  #   
+  #   data <- filter_unique_items_data_by_inputs(
+  #     data = data,
+  #     input = input,
+  #     maker_input_id = "outbound_filter-maker",
+  #     status_input_id = "outbound_filter-status",
+  #     item_name_input_id = "outbound_filter-name",
+  #     purchase_date_range_id = "outbound_filter-purchase_date_range"
+  #   )
+  #   
+  #   # 统计 SKU, Status, 和 PurchaseTime 下的数量（仅统计非瑕疵状态）
+  #   data <- data %>%
+  #     group_by(SKU, Status, PurchaseTime) %>%
+  #     mutate(ItemCount = n()) %>%  # 条件统计数量
+  #     ungroup()
+  #   
+  #   # 去重：仅保留每个 SKU 和组合的第一条记录
+  #   data <- data %>%
+  #     arrange(desc(updated_at)) %>%  # 按需求排序
+  #     distinct(SKU, Status, PurchaseTime, .keep_all = TRUE)         # 去重，保留所有列
+  #   
+  #   data
+  # })
+  # 
+  # # 售出-物品售出分页过滤
+  # filtered_unique_items_data_sold <- reactive({
+  #   req(unique_items_data())
+  #   data <- unique_items_data()
+  #   
+  #   # 只显示本页相关状态
+  #   data <- data %>%
+  #     filter(Status %in% c("国内入库", "国内出库", "美国入库", "美国调货", "国内售出"), Defect != "瑕疵")
+  # 
+  #   data <- filter_unique_items_data_by_inputs(
+  #     data = data,
+  #     input = input,
+  #     maker_input_id = "sold_filter-maker",
+  #     status_input_id = "sold_filter-status",
+  #     item_name_input_id = "sold_filter-name",
+  #     purchase_date_range_id = "sold_filter-purchase_date_range"
+  #   )
+  #   
+  #   # 统计 SKU, Status, 和 PurchaseTime 下的数量（仅统计非瑕疵状态）
+  #   data <- data %>%
+  #     group_by(SKU, Status, PurchaseTime) %>%
+  #     mutate(ItemCount = n()) %>%  # 条件统计数量
+  #     ungroup()
+  #   
+  #   
+  #   # 去重：仅保留每个 SKU 和组合的第一条记录
+  #   data <- data %>%
+  #     arrange(desc(updated_at)) %>%  # 按需求排序
+  #     distinct(SKU, Status, PurchaseTime, .keep_all = TRUE)         # 去重，保留所有列
+  #   
+  #   data
+  # })
+  # 
+  # # Define debounced input for the combined search field
+  # debounced_filter_combined <- debounce(
+  #   reactive({ trimws(input$filter_combined) }),  # Trim whitespace from input
+  #   millis = 500  # Set debounce delay to 500 milliseconds
+  # )
+  # 
+  # filtered_orders <- reactive({
+  #   req(orders())  # Ensure order data exists
+  #   
+  #   data <- orders()  # Get all order data
+  #   
+  #   # Combined filter logic with debouncing
+  #   search_term <- debounced_filter_combined()
+  #   if (!is.null(search_term) && length(search_term) > 0 && nzchar(search_term)) {
+  #     # Filter across multiple fields using OR logic
+  #     data <- data %>% filter(
+  #       grepl(search_term, OrderID, ignore.case = TRUE) |
+  #         grepl(search_term, UsTrackingNumber, ignore.case = TRUE) |
+  #         grepl(search_term, CustomerName, ignore.case = TRUE) |
+  #         grepl(search_term, CustomerNetName, ignore.case = TRUE) |
+  #         grepl(search_term, OrderNotes, ignore.case = TRUE)
+  #     )
+  #     
+  #     # Handle SKU and ItemName filtering using unique_items_data
+  #     req(unique_items_data())
+  #     sku_or_item_orders <- unique_items_data() %>%
+  #       filter(
+  #         grepl(search_term, SKU, ignore.case = TRUE) |
+  #           grepl(search_term, ItemName, ignore.case = TRUE)
+  #       ) %>%
+  #       pull(OrderID) %>%
+  #       unique()
+  #     
+  #     # Combine orders matching SKU or ItemName
+  #     data <- data %>% filter(OrderID %in% sku_or_item_orders | 
+  #                               grepl(search_term, OrderID, ignore.case = TRUE) |
+  #                               grepl(search_term, UsTrackingNumber, ignore.case = TRUE) |
+  #                               grepl(search_term, CustomerName, ignore.case = TRUE) |
+  #                               grepl(search_term, CustomerNetName, ignore.case = TRUE) |
+  #                               grepl(search_term, OrderNotes, ignore.case = TRUE))
+  #   }
+  #   
+  #   # Filter by platform
+  #   if (!is.null(input$filter_platform) && input$filter_platform != "") {
+  #     data <- data %>% filter(Platform == input$filter_platform)
+  #   }
+  #   
+  #   # Filter by order status
+  #   if (!is.null(input$filter_order_status) && input$filter_order_status != "") {
+  #     data <- data %>% filter(OrderStatus == input$filter_order_status)
+  #   }
+  #   
+  #   # Filter by creation date
+  #   if (!is.null(input$filter_order_date) && !is.null(input$filter_order_date[[1]]) && !is.null(input$filter_order_date[[2]])) {
+  #     start_date <- input$filter_order_date[[1]]
+  #     end_date <- input$filter_order_date[[2]]
+  #     data <- data %>% filter(created_at >= start_date & created_at <= end_date)
+  #   }
+  #   
+  #   # Sort by creation date in descending order
+  #   data <- data %>% arrange(desc(created_at))
+  #   
+  #   data
+  # })
   
   ###
   
@@ -434,67 +434,67 @@ server <- function(input, output, session) {
     data
   })
   
-  # 瑕疵品管理页过滤
-  filtered_unique_items_data_defect <- reactive({
-    req(unique_items_data())
-    data <- unique_items_data()
-    
-    data <- filter_unique_items_data_by_inputs(
-      data = data,
-      input = input,
-      maker_input_id = "defect_filter-maker",
-      item_name_input_id = "defect_filter-name",
-      purchase_date_range_id = "defect_filter-purchase_date_range"
-    )
-   
-    # 默认过滤条件：状态为“国内入库”且 Defect 不为“未知”
-    data <- data[!is.na(data$Defect) & data$Defect != "未知" & data$Status == "国内入库", ]
-
-    # 处理开关互斥逻辑
-    if (isTRUE(input$show_defects_only)) {
-      # 如果仅显示瑕疵品
-      data <- data[data$Defect == "瑕疵", ]
-    } else if (isTRUE(input$show_perfects_only)) {
-      # 如果仅显示无瑕品
-      data <- data[data$Defect == "无瑕", ]
-    }
-
-    data
-  })
-  
-  # 国际物流筛选
-  filtered_unique_items_data_logistics <- reactive({
-    req(unique_items_data())
-    data <- unique_items_data()
-    
-    # # 只显示本页相关状态
-    # data <- data %>%
-    #   filter(Status %in% c("国内出库", "国内售出"), Defect != "瑕疵")
-
-    data <- filter_unique_items_data_by_inputs(
-      data = data,
-      input = input,
-      maker_input_id = "logistic_filter-maker",
-      status_input_id = "logistic_filter-status",
-      item_name_input_id = "logistic_filter-name",
-      sold_date_range_id = "logistic_filter-sold_date_range",
-      only_show_sold_id = "logistic_filter-only_show_sold",
-      exit_date_range_id = "logistic_filter-exit_date_range",
-      only_show_exit_id = "logistic_filter-only_show_exit"
-    )
-    
-    shipping_method <- input$intl_shipping_method
-    
-    # 判断并根据物流方式筛选
-    if (!is.null(shipping_method)) {
-      data <- data %>% filter(IntlShippingMethod == shipping_method)
-    }
-    
-    # 优先显示没有国际运单号的物品
-    data <- data %>% arrange(desc(is.na(IntlTracking)), IntlTracking)
-
-    data
-  })
+  # # 瑕疵品管理页过滤
+  # filtered_unique_items_data_defect <- reactive({
+  #   req(unique_items_data())
+  #   data <- unique_items_data()
+  #   
+  #   data <- filter_unique_items_data_by_inputs(
+  #     data = data,
+  #     input = input,
+  #     maker_input_id = "defect_filter-maker",
+  #     item_name_input_id = "defect_filter-name",
+  #     purchase_date_range_id = "defect_filter-purchase_date_range"
+  #   )
+  #  
+  #   # 默认过滤条件：状态为“国内入库”且 Defect 不为“未知”
+  #   data <- data[!is.na(data$Defect) & data$Defect != "未知" & data$Status == "国内入库", ]
+  # 
+  #   # 处理开关互斥逻辑
+  #   if (isTRUE(input$show_defects_only)) {
+  #     # 如果仅显示瑕疵品
+  #     data <- data[data$Defect == "瑕疵", ]
+  #   } else if (isTRUE(input$show_perfects_only)) {
+  #     # 如果仅显示无瑕品
+  #     data <- data[data$Defect == "无瑕", ]
+  #   }
+  # 
+  #   data
+  # })
+  # 
+  # # 国际物流筛选
+  # filtered_unique_items_data_logistics <- reactive({
+  #   req(unique_items_data())
+  #   data <- unique_items_data()
+  #   
+  #   # # 只显示本页相关状态
+  #   # data <- data %>%
+  #   #   filter(Status %in% c("国内出库", "国内售出"), Defect != "瑕疵")
+  # 
+  #   data <- filter_unique_items_data_by_inputs(
+  #     data = data,
+  #     input = input,
+  #     maker_input_id = "logistic_filter-maker",
+  #     status_input_id = "logistic_filter-status",
+  #     item_name_input_id = "logistic_filter-name",
+  #     sold_date_range_id = "logistic_filter-sold_date_range",
+  #     only_show_sold_id = "logistic_filter-only_show_sold",
+  #     exit_date_range_id = "logistic_filter-exit_date_range",
+  #     only_show_exit_id = "logistic_filter-only_show_exit"
+  #   )
+  #   
+  #   shipping_method <- input$intl_shipping_method
+  #   
+  #   # 判断并根据物流方式筛选
+  #   if (!is.null(shipping_method)) {
+  #     data <- data %>% filter(IntlShippingMethod == shipping_method)
+  #   }
+  #   
+  #   # 优先显示没有国际运单号的物品
+  #   data <- data %>% arrange(desc(is.na(IntlTracking)), IntlTracking)
+  # 
+  #   data
+  # })
   
   # 查询页过滤-库存表
   filtered_inventory <- reactive({
@@ -554,28 +554,28 @@ server <- function(input, output, session) {
                                                            ItemCount = "数量")
                                                          ), selection = "single", data = filtered_unique_items_data_purchase)
   
-  unique_items_table_inbound_selected_row <- callModule(uniqueItemsTableServer, "unique_items_table_inbound",
-                                                        column_mapping <- c(common_columns, list(
-                                                          PurchaseTime = "采购日",
-                                                          DomesticEntryTime = "入库日",
-                                                          Defect = "瑕疵态",
-                                                          ItemCount = "数量")
-                                                        ), selection = "single", data = filtered_unique_items_data_inbound)
-  
-  unique_items_table_outbound_selected_row <- callModule(uniqueItemsTableServer, "unique_items_table_outbound", 
-                                                         column_mapping <- c(common_columns, list(
-                                                           PurchaseTime = "采购日",
-                                                           DomesticExitTime = "出库日",
-                                                           ItemCount = "数量")
-                                                         ), selection = "single", data = filtered_unique_items_data_outbound)
-  
-  unique_items_table_sold_selected_row <- callModule(uniqueItemsTableServer, "unique_items_table_sold",
-                                                     column_mapping <- c(common_columns, list(
-                                                       PurchaseTime = "采购日",
-                                                       DomesticSoldTime = "售出日",
-                                                       ItemCount = "数量")
-                                                     ), selection = "single", data = filtered_unique_items_data_sold)
-  
+  # unique_items_table_inbound_selected_row <- callModule(uniqueItemsTableServer, "unique_items_table_inbound",
+  #                                                       column_mapping <- c(common_columns, list(
+  #                                                         PurchaseTime = "采购日",
+  #                                                         DomesticEntryTime = "入库日",
+  #                                                         Defect = "瑕疵态",
+  #                                                         ItemCount = "数量")
+  #                                                       ), selection = "single", data = filtered_unique_items_data_inbound)
+  # 
+  # unique_items_table_outbound_selected_row <- callModule(uniqueItemsTableServer, "unique_items_table_outbound", 
+  #                                                        column_mapping <- c(common_columns, list(
+  #                                                          PurchaseTime = "采购日",
+  #                                                          DomesticExitTime = "出库日",
+  #                                                          ItemCount = "数量")
+  #                                                        ), selection = "single", data = filtered_unique_items_data_outbound)
+  # 
+  # unique_items_table_sold_selected_row <- callModule(uniqueItemsTableServer, "unique_items_table_sold",
+  #                                                    column_mapping <- c(common_columns, list(
+  #                                                      PurchaseTime = "采购日",
+  #                                                      DomesticSoldTime = "售出日",
+  #                                                      ItemCount = "数量")
+  #                                                    ), selection = "single", data = filtered_unique_items_data_sold)
+  # 
   ####################################################################################################################################
   
   unique_items_table_manage_selected_row <- callModule(uniqueItemsTableServer, "unique_items_table_manage",
@@ -592,31 +592,31 @@ server <- function(input, output, session) {
                                                        ), selection = "multiple", data = filtered_unique_items_data_manage,
                                                        option = modifyList(table_default_options, list(scrollY = "730px", searching = TRUE)))
   
-  unique_items_table_defect_selected_row <- callModule(uniqueItemsTableServer, "unique_items_table_defect",
-                                                       column_mapping <- c(common_columns, list(
-                                                         PurchaseTime = "采购日",
-                                                         DomesticEntryTime = "入库日",
-                                                         Defect = "瑕疵态",
-                                                         DefectNotes = "瑕疵备注")
-                                                       ), selection = "multiple", data = filtered_unique_items_data_defect,
-                                                       option = modifyList(table_default_options, list(scrollY = "730px", searching = TRUE)))
-  
-  unique_items_table_logistics_selected_row <- callModule(uniqueItemsTableServer, "unique_items_table_logistics",
-                                                          column_mapping = c(common_columns, list(
-                                                            IntlShippingMethod = "国际运输",
-                                                            DomesticSoldTime = "售出日",
-                                                            DomesticExitTime = "出库日",
-                                                            IntlShippingCost = "国际运费",
-                                                            IntlTracking = "国际运单"
-                                                          )), selection = "multiple",
-                                                          data = filtered_unique_items_data_logistics,
-                                                          option = modifyList(table_default_options, list(scrollY = "730px", 
-                                                                                                          searching = FALSE, 
-                                                                                                          paging = TRUE,
-                                                                                                          pageLength = 30,
-                                                                                                          lengthMenu = c(30, 100, 200, 500, 1000),
-                                                                                                          dom = 'lftip')))
-  
+  # unique_items_table_defect_selected_row <- callModule(uniqueItemsTableServer, "unique_items_table_defect",
+  #                                                      column_mapping <- c(common_columns, list(
+  #                                                        PurchaseTime = "采购日",
+  #                                                        DomesticEntryTime = "入库日",
+  #                                                        Defect = "瑕疵态",
+  #                                                        DefectNotes = "瑕疵备注")
+  #                                                      ), selection = "multiple", data = filtered_unique_items_data_defect,
+  #                                                      option = modifyList(table_default_options, list(scrollY = "730px", searching = TRUE)))
+  # 
+  # unique_items_table_logistics_selected_row <- callModule(uniqueItemsTableServer, "unique_items_table_logistics",
+  #                                                         column_mapping = c(common_columns, list(
+  #                                                           IntlShippingMethod = "国际运输",
+  #                                                           DomesticSoldTime = "售出日",
+  #                                                           DomesticExitTime = "出库日",
+  #                                                           IntlShippingCost = "国际运费",
+  #                                                           IntlTracking = "国际运单"
+  #                                                         )), selection = "multiple",
+  #                                                         data = filtered_unique_items_data_logistics,
+  #                                                         option = modifyList(table_default_options, list(scrollY = "730px", 
+  #                                                                                                         searching = FALSE, 
+  #                                                                                                         paging = TRUE,
+  #                                                                                                         pageLength = 30,
+  #                                                                                                         lengthMenu = c(30, 100, 200, 500, 1000),
+  #                                                                                                         dom = 'lftip')))
+
   output$filtered_inventory_table_query <- renderDT({  # input$filtered_inventory_table_query_rows_selected
     column_mapping <- list(
       SKU = "条形码",
@@ -649,24 +649,24 @@ server <- function(input, output, session) {
                                                            DomesticSoldTime = "售出日")
                                                          ), data = filtered_unique_items_data_download)
   
-  # 订单管理分页订单表
-  selected_order_row <- callModule(orderTableServer, "orders_table_module",
-                                   column_mapping = list(
-                                     OrderID = "订单号",
-                                     OrderImagePath = "订单图",
-                                     CustomerName = "姓名",
-                                     CustomerNetName = "网名",
-                                     Platform = "平台",
-                                     TransactionAmount = "成交额",
-                                     UsTrackingNumber = "运单号",
-                                     LabelStatus = "运单PDF",
-                                     OrderStatus = "状态",
-                                     OrderNotes = "备注",
-                                     created_at = "创建时间"
-                                   ),
-                                   data = filtered_orders,  # 数据源
-                                   selection = "single" # 单选模式
-  )
+  # # 订单管理分页订单表
+  # selected_order_row <- callModule(orderTableServer, "orders_table_module",
+  #                                  column_mapping = list(
+  #                                    OrderID = "订单号",
+  #                                    OrderImagePath = "订单图",
+  #                                    CustomerName = "姓名",
+  #                                    CustomerNetName = "网名",
+  #                                    Platform = "平台",
+  #                                    TransactionAmount = "成交额",
+  #                                    UsTrackingNumber = "运单号",
+  #                                    LabelStatus = "运单PDF",
+  #                                    OrderStatus = "状态",
+  #                                    OrderNotes = "备注",
+  #                                    created_at = "创建时间"
+  #                                  ),
+  #                                  data = filtered_orders,  # 数据源
+  #                                  selection = "single" # 单选模式
+  # )
   
   ####################################################################################################################################
   
