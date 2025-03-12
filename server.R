@@ -674,6 +674,7 @@ server <- function(input, output, session) {
   ####################################################################################################################################
   
   observeEvent(input$refresh_item_table, {
+    added_items(dbGetQuery(con, "SELECT * FROM shopping_cart WHERE SystemType = ?", params = list(system_type)))
     unique_items_data_refresh_trigger(!unique_items_data_refresh_trigger())  # 触发数据刷新
     orders_refresh_trigger(!orders_refresh_trigger()) # 触发 orders 数据刷新
     employee_refresh_trigger(!employee_refresh_trigger()) # 触发员工相关数据刷新
