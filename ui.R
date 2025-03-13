@@ -41,7 +41,7 @@ ui <- navbarPage(
     ),
     
     tags$head(
-      tags$link(rel="icon", type="image/x-icon", href="https://www.goldenbeanllc.com/icons/favicon-96x96.png"),  # 设置页面图标
+      tags$link(rel="icon", type="image/x-icon", href="https://www.goldenbeanllc.com/icons/favicon-brown-96x96.png"),  # 设置页面图标
       
       # CSS 样式定义
       tags$style(HTML("
