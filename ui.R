@@ -53,8 +53,8 @@ ui <- navbarPage(
               .navbar{display:block !important;overflow:hidden !important;width:100% !important; background-color: #4d3836 !important;}  /* 导航栏宽度限制 */
               body{padding-top:70px !important;}  /* 顶部留白 */
               
-              .navbar-brand:hover {color: #E89B5F !important; /* 悬停时标题文字颜色：浅焦糖棕 */}
-              .navbar-nav > li > a:hover { color: #E89B5F !important; /* 悬停文字颜色：浅焦糖棕 */ background-color: #3C2F2F !important; /* 悬停背景颜色：深咖啡色 */}
+              .navbar-brand:hover {color: #ff9654 !important; /* 悬停时标题文字颜色：浅焦糖棕 */}
+              .navbar-nav > li > a:hover { color: #ff9654 !important; /* 悬停文字颜色：浅焦糖棕 */ background-color: #3C2F2F !important; /* 悬停背景颜色：深咖啡色 */}
               .nav-pills > li.active > a {background-color: #4d3836 !important; /* 激活选项卡背景颜色：咖啡色 */}
               
               .layout-container{display:flex;flex-direction:row;height:100%;width:100%;overflow:visible;}  /* Flexbox 布局容器 */
