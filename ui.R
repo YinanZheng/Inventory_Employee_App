@@ -25,7 +25,7 @@ ui <- navbarPage(
            justify-content: center; align-items: center; text-align: center;",
       
       # 旋转的毛线球 GIF
-      tags$img(src = "https://www.goldenbeanllc.com/icons/spinning_yarn.gif", 
+      tags$img(src = "https://www.goldenbeanllc.com/icons/spinning_yarn_brown.gif", 
                style = "width: 80px; height: 80px;"),
       
       # 加载提示文字
