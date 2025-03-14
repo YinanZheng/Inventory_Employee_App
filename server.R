@@ -592,7 +592,7 @@ server <- function(input, output, session) {
                                                          UsShippingTime = "美发货日",
                                                          OrderID = "订单号")
                                                        ), selection = "multiple", data = filtered_unique_items_data_manage,
-                                                       option = modifyList(table_default_options, list(scrollY = "730px", searching = TRUE)))
+                                                       option = modifyList(table_default_options, list(scrollY = "730px", searching = FALSE)))
   
   # unique_items_table_defect_selected_row <- callModule(uniqueItemsTableServer, "unique_items_table_defect",
   #                                                      column_mapping <- c(common_columns, list(
@@ -601,7 +601,7 @@ server <- function(input, output, session) {
   #                                                        Defect = "瑕疵态",
   #                                                        DefectNotes = "瑕疵备注")
   #                                                      ), selection = "multiple", data = filtered_unique_items_data_defect,
-  #                                                      option = modifyList(table_default_options, list(scrollY = "730px", searching = TRUE)))
+  #                                                      option = modifyList(table_default_options, list(scrollY = "730px", searching = FALSE)))
   # 
   # unique_items_table_logistics_selected_row <- callModule(uniqueItemsTableServer, "unique_items_table_logistics",
   #                                                         column_mapping = c(common_columns, list(
