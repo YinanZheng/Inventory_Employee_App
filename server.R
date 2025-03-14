@@ -515,7 +515,7 @@ server <- function(input, output, session) {
       input = input,
       maker_input_id = "query_filter-maker",
       item_name_input_id = "query_filter-name",
-      other_input_id = "query_filter-other"
+      sku_input_id = "query_filter-sku"
     )
     
     # 根据售罄筛选
