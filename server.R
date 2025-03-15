@@ -1929,7 +1929,7 @@ server <- function(input, output, session) {
   is_unlocked <- reactiveVal(FALSE)
   
   observeEvent(input$unlock_button, {
-    if (input$accounting_password == correct_password) {
+    if (input$accounting_password == accounting_password) {
       is_unlocked(TRUE)
       shinyjs::hide("password_section")  # 隐藏密码输入界面
       shinyjs::show("accounting_panel")  # 显示账务管理界面
