@@ -10,13 +10,10 @@ ui <- navbarPage(
     
     # 页面加载时自动获取用户时区，并传递给 Shiny
     tags$script("
-      function sendTimeZone() {
+      $(document).on('shiny:connected', function() {
         var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
         Shiny.setInputValue('user_timezone', tz, {priority: 'event'});
-      }
-      // 确保时区被正确传递
-      $(document).ready(function() {
-        setTimeout(sendTimeZone, 1000);  // 延迟 1 秒以确保 Shiny 已加载
+        console.log('时区已发送: ' + tz);  // 调试输出到浏览器控制台
       });
     "),
     
