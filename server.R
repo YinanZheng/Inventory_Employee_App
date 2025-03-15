@@ -1081,15 +1081,18 @@ server <- function(input, output, session) {
     today_records <- clock_records() %>%
       mutate(
         ClockInTime = with_tz(ymd_hms(ClockInTime, tz = "UTC"), user_tz),  # ✅ 转换为用户时区
-        ClockOutTime = ifelse(is.na(ClockOutTime), NA, with_tz(ymd_hms(ClockOutTime, tz = "UTC"), user_tz))  # ✅ 转换
+        ClockOutTime = case_when(
+          is.na(ClockOutTime) ~ NA_character_,  # ✅ 处理未打卡情况
+          TRUE ~ format(with_tz(ymd_hms(ClockOutTime, tz = "UTC"), user_tz), "%Y-%m-%d %H:%M:%S")  # ✅ 转换 + 格式化
+        )
       ) %>%
       filter(as.Date(ClockInTime) == today, EmployeeName == input$employee_name) %>%
       left_join(work_rates(), by = c("EmployeeName", "WorkType")) %>%
       mutate(
-        ClockInTime = format(ClockInTime, "%Y-%m-%d %H:%M:%S"),  # ✅ 格式化输出
-        ClockOutTime = ifelse(is.na(ClockOutTime), "未结束", format(ClockOutTime, "%Y-%m-%d %H:%M:%S")),  # ✅ 处理未结束
+        ClockInTime = format(ClockInTime, "%Y-%m-%d %H:%M:%S"),  # ✅ 格式化时间
+        ClockOutTime = ifelse(is.na(ClockOutTime), "未结束", ClockOutTime),  # ✅ 确保字符串格式
         HoursWorked = ifelse(is.na(ClockOutTime) | is.na(ClockInTime), 0,
-                             round(as.numeric(difftime(ClockOutTime, ClockInTime, units = "hours")), 2)),
+                             round(as.numeric(difftime(ymd_hms(ClockOutTime), ymd_hms(ClockInTime), units = "hours")), 2)),
         HourlyRate = round(ifelse(is.na(HourlyRate), 0, HourlyRate), 2),
         TotalPay = sprintf("¥%.2f", round(ifelse(is.na(TotalPay), 0, TotalPay), 2)),
         SalesAmount = sprintf("$%.2f", ifelse(is.na(SalesAmount), 0, SalesAmount))  # 格式化销售额为货币形式
