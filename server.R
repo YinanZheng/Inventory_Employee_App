@@ -984,14 +984,16 @@ server <- function(input, output, session) {
   
   # 手动补录打卡逻辑
   observeEvent(input$submit_manual_clock, {
-    req(input$employee_name, input$work_type)
+    req(input$employee_name, input$work_type, input$user_timezone)
     
     employee <- input$employee_name
     work_type <- input$work_type
+    user_tz <- input$user_timezone  # ✅ 直接获取用户时区
     
+    # 解析开始时间
     clock_in <- tryCatch({
-      as.character(as.POSIXct(paste(input$manual_date_in, paste(input$manual_time_in, "00", sep = ":")), 
-                              format = "%Y-%m-%d %H:%M:%S", tz = "UTC"))
+      local_time <- ymd_hms(paste(input$manual_date_in, paste(input$manual_time_in, "00", sep = ":")), tz = user_tz)  # ✅ 解析为用户时区
+      as.character(with_tz(local_time, "UTC"))  # ✅ 转换为 UTC 并格式化
     }, error = function(e) {
       showNotification("工作开始时间格式错误，请重新选择！", type = "error")
       return(NULL)
@@ -999,10 +1001,11 @@ server <- function(input, output, session) {
     
     if (is.null(clock_in)) return()
     
+    # 解析结束时间
     clock_out <- tryCatch({
       if (!is.null(input$manual_date_out) && !is.null(input$manual_time_out)) {
-        as.character(as.POSIXct(paste(input$manual_date_out, paste(input$manual_time_out, "00", sep = ":")), 
-                                format = "%Y-%m-%d %H:%M:%S", tz = "UTC"))
+        local_time <- ymd_hms(paste(input$manual_date_out, paste(input$manual_time_out, "00", sep = ":")), tz = user_tz)  # ✅ 解析用户时区
+        as.character(with_tz(local_time, "UTC"))  # ✅ 转换为 UTC 并格式化
       } else {
         NA
       }
@@ -1011,7 +1014,7 @@ server <- function(input, output, session) {
       return(NULL)
     })
     
-    if (!is.na(clock_out) && as.POSIXct(clock_out) <= as.POSIXct(clock_in)) {
+    if (!is.na(clock_out) && as.POSIXct(clock_out, tz = "UTC") <= as.POSIXct(clock_in, tz = "UTC")) {
       showNotification("工作结束时间必须晚于开始时间！", type = "error")
       return()
     }
@@ -1032,7 +1035,7 @@ server <- function(input, output, session) {
         }
         
         total_pay <- if (!is.na(clock_out)) {
-          hours_worked <- as.numeric(difftime(as.POSIXct(clock_out), as.POSIXct(clock_in), units = "hours"))
+          hours_worked <- as.numeric(difftime(as.POSIXct(clock_out, tz = "UTC"), as.POSIXct(clock_in, tz = "UTC"), units = "hours"))
           round(hours_worked * hourly_rate, 2)
         } else {
           NA
