@@ -10,12 +10,7 @@ server <- function(input, output, session) {
   shinyjs::show("loading-screen")  # 显示加载界面
   
   future({
-    utc_time <- Sys.time()
-    user_tz <- input$user_timezone
-    user_time <- format(as.POSIXct(utc_time, tz = "UTC"), tz = user_tz, usetz = TRUE)
-    list(utc_time = format(utc_time, "%Y-%m-%d %H:%M:%S UTC"),
-         user_tz = user_tz,
-         user_time = user_time)
+    return(TRUE)  # 任务完成
   }) %>% 
     promises::then(function(result) {
       shinyjs::runjs("$('#loading-screen').fadeOut(1000);")  # 1秒淡出加载界面
