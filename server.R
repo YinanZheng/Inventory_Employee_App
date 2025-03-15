@@ -1069,26 +1069,30 @@ server <- function(input, output, session) {
   
   # 渲染当天工作记录表格（仅显示当前选择的员工）
   output$today_work_records_table <- renderDT({
-    req(clock_records(), input$employee_name)
+    req(clock_records(), input$employee_name, user_timezone())  # 确保时区已获取
     
-    # 获取当天日期
-    today <- as.Date(Sys.Date())
+    # 获取用户时区
+    user_tz <- user_timezone()  # 使用全局存储的用户时区
+    
+    # 获取当天日期（用户时区）
+    today <- as.Date(with_tz(Sys.time(), user_tz))  # 确保当天日期基于用户时区
     
     # 过滤当天记录，仅显示当前选择的员工
     today_records <- clock_records() %>%
+      mutate(
+        ClockInTime = with_tz(ymd_hms(ClockInTime, tz = "UTC"), user_tz),  # ✅ 转换为用户时区
+        ClockOutTime = ifelse(is.na(ClockOutTime), NA, with_tz(ymd_hms(ClockOutTime, tz = "UTC"), user_tz))  # ✅ 转换
+      ) %>%
       filter(as.Date(ClockInTime) == today, EmployeeName == input$employee_name) %>%
       left_join(work_rates(), by = c("EmployeeName", "WorkType")) %>%
       mutate(
-        ClockInTime = as.character(format(as.POSIXct(ClockInTime, format = "%Y-%m-%d %H:%M:%S", tz = "UTC"), "%Y-%m-%d %H:%M:%S")),
-        ClockOutTime = ifelse(is.na(ClockOutTime), "未结束", 
-                              as.character(format(as.POSIXct(ClockOutTime, format = "%Y-%m-%d %H:%M:%S", tz = "UTC"), "%Y-%m-%d %H:%M:%S"))),
+        ClockInTime = format(ClockInTime, "%Y-%m-%d %H:%M:%S"),  # ✅ 格式化输出
+        ClockOutTime = ifelse(is.na(ClockOutTime), "未结束", format(ClockOutTime, "%Y-%m-%d %H:%M:%S")),  # ✅ 处理未结束
         HoursWorked = ifelse(is.na(ClockOutTime) | is.na(ClockInTime), 0,
-                             round(as.numeric(difftime(as.POSIXct(ClockOutTime, format = "%Y-%m-%d %H:%M:%S", tz = "UTC"),
-                                                       as.POSIXct(ClockInTime, format = "%Y-%m-%d %H:%M:%S", tz = "UTC"),
-                                                       units = "hours")), 2)),
+                             round(as.numeric(difftime(ClockOutTime, ClockInTime, units = "hours")), 2)),
         HourlyRate = round(ifelse(is.na(HourlyRate), 0, HourlyRate), 2),
         TotalPay = sprintf("¥%.2f", round(ifelse(is.na(TotalPay), 0, TotalPay), 2)),
-        SalesAmount = sprintf("$%.2f", ifelse(is.na(SalesAmount), 0, SalesAmount)) # 格式化销售额为货币形式
+        SalesAmount = sprintf("$%.2f", ifelse(is.na(SalesAmount), 0, SalesAmount))  # 格式化销售额为货币形式
       ) %>%
       select(
         "员工姓名" = EmployeeName,
@@ -1098,14 +1102,14 @@ server <- function(input, output, session) {
         "工作时长 (小时)" = HoursWorked,
         "时薪 (¥)" = HourlyRate,
         "总薪酬 (¥)" = TotalPay,
-        "销售额 ($)" = SalesAmount # 新增销售额列
+        "销售额 ($)" = SalesAmount  # 新增销售额列
       )
     
     # 如果没有记录，显示提示信息
     if (nrow(today_records) == 0) {
       return(datatable(
         data.frame(Message = "今天暂无工作记录"),
-        options = list(pageLength = 10, scrollX = TRUE, searching = FALSE),
+        options = table_default_options,
         rownames = FALSE
       ))
     }
@@ -1113,7 +1117,7 @@ server <- function(input, output, session) {
     # 返回数据表
     datatable(
       today_records,
-      options = list(pageLength = 10, scrollX = TRUE, searching = FALSE),
+      options = table_default_options,
       rownames = FALSE
     )
   })
