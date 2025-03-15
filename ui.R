@@ -1,5 +1,4 @@
-plan(multicore)  # 让数据加载异步执行，避免阻塞 UI
-
+# Define UI
 ui <- navbarPage(
   title = "ERP系统（员工端）",
   id = "inventory_cn",  # 设置 ID，用于监听当前选中的主页面
