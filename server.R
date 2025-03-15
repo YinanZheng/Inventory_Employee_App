@@ -1103,8 +1103,8 @@ server <- function(input, output, session) {
       select(
         "员工姓名" = EmployeeName,
         "工作类型" = WorkType,
-        "上班时间" = ClockInTime,
-        "下班时间" = ClockOutTime,
+        "工作开始" = ClockInTime,
+        "工作结束" = ClockOutTime,
         "工作时长 (小时)" = HoursWorked,
         "时薪 (¥)" = HourlyRate,
         "总薪酬 (¥)" = TotalPay,
