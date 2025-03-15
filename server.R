@@ -30,11 +30,10 @@ server <- function(input, output, session) {
     # 转换 UTC 时间到用户本地时间
     user_time <- format(as.POSIXct(utc_time, tz = "UTC"), tz = user_tz, usetz = TRUE)
     
-    # 生成时间信息
-    time_info <- paste(
-      "📌 <b>服务器 UTC 时间:</b>", format(utc_time, "%Y-%m-%d %H:%M:%S UTC"), "<br>",
-      "🌎 <b>你的时区:</b>", user_tz, "<br>",
-      "⏰ <b>本地时间:</b>", user_time
+    time_info <- paste0(
+      "📌 <b>服务器 UTC 时间:</b> ", format(utc_time, "%Y-%m-%d %H:%M:%S UTC"), "<br>",
+      "🌎 <b>你的时区:</b> ", user_tz, "<br>",
+      "⏰ <b>本地时间:</b> ", user_time
     )
     
     showNotification(time_info, type = "message", duration = 10)
