@@ -1925,6 +1925,20 @@ server <- function(input, output, session) {
   ##                                                            ##
   ################################################################
   
+  # 追踪是否解锁
+  is_unlocked <- reactiveVal(FALSE)
+  
+  observeEvent(input$unlock_button, {
+    if (input$accounting_password == accounting_password) {
+      is_unlocked(TRUE)
+      showNotification("密码正确，解锁成功！", type = "message")
+      shinyjs::hide("password_section") # 隐藏密码输入框
+      shinyjs::show("accounting_panel") # 显示账务管理界面
+    } else {
+      showNotification("密码错误，请重试！", type = "error")
+    }
+  })
+  
   is_update_mode <- reactiveVal(FALSE)  # 初始化为登记模式
   selected_TransactionID  <- reactiveVal(NULL)  # 存储选中的记录 ID
   selected_TransactionImagePath <- reactiveVal(NULL)  # 存储选中的记录图片路径

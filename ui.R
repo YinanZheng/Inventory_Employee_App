@@ -341,99 +341,109 @@ ui <- navbarPage(
   tabPanel(
     "账务管理", icon = icon("wallet"),
     div(
-      class = "layout-container",
-      div(
-        class = "sticky-sidebar",
-        tabsetPanel(
-          id = "sidebar_tabs",
-          type = "pills",
-          selected = "账务登记",
-          tabPanel(
-            title = "账务登记", icon = icon("file-invoice-dollar"),
-            tags$h4("账务登记", style = "color: #007BFF; font-weight: bold; margin-bottom: 15px;"),
-            fluidRow(
-              column(7, numericInput("amount", "金额:", value = 0, min = 0, width = "100%")),
-              column(5, radioButtons(inputId = "transaction_type", label = "交易类型:", choices = c("转出" = "out", "转入" = "in"), selected = NULL, inline = FALSE))
+      id = "password_section",
+      passwordInput("accounting_password", "请输入密码解锁账务管理", width = "100%"),
+      actionButton("unlock_button", "解锁", icon = icon("unlock"), class = "btn-primary", style = "width: 100%; margin-top: 10px;")
+    ),
+    
+    hidden(
+      div(id = "accounting_panel",
+          div(
+            class = "layout-container",
+            div(
+              class = "sticky-sidebar",
+              tabsetPanel(
+                id = "sidebar_tabs",
+                type = "pills",
+                selected = "账务登记",
+                tabPanel(
+                  title = "账务登记", icon = icon("file-invoice-dollar"),
+                  tags$h4("账务登记", style = "color: #007BFF; font-weight: bold; margin-bottom: 15px;"),
+                  fluidRow(
+                    column(7, numericInput("amount", "金额:", value = 0, min = 0, width = "100%")),
+                    column(5, radioButtons(inputId = "transaction_type", label = "交易类型:", choices = c("转出" = "out", "转入" = "in"), selected = NULL, inline = FALSE))
+                  ),
+                  fluidRow(
+                    column(12, dateInput("custom_date", "转款日期:", value = Sys.Date(), width = "100%")),
+                    column(12, timeInput("custom_time", "转款时间:", value = format(Sys.time(), "%H:%M:%S"), width = "100%"))
+                  ),
+                  fluidRow(
+                    column(12, selectInput(inputId = "transaction_category", label = "转账类别:", choices = c("采购", "税费", "杂费", "工资", "债务", "社保", "图解", "其他"), selected = "其他", width = "100%")),
+                    div(style = "margin-top: 8px; padding: 10px; background-color: #f9f9f9; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; color: #555;", textOutput("transaction_category_note", inline = TRUE))
+                  ),
+                  textAreaInput("remarks", "备注:", placeholder = "请输入备注内容", width = "100%"),
+                  imageModuleUI("image_transactions", label = "转账证据上传", label_color = "#007BFF"),
+                  actionButton("record_transaction", "登记", icon = icon("save"), class = "btn-primary", style = "width: 100%; margin-bottom: 10px;"),
+                  fluidRow(
+                    column(6, actionButton("delete_transaction", "删除选中行", icon = icon("trash"), class = "btn-danger", style = "width: 100%;")),
+                    column(6, actionButton("reset_form", "重置", icon = icon("redo"), class = "btn-info", style = "width: 100%;"))
+                  )
+                ),
+                tabPanel(
+                  title = "资金转移", icon = icon("exchange-alt"),
+                  tags$h4("资金转移", style = "color: #28A745; font-weight: bold; margin-bottom: 15px;"),
+                  numericInput("transfer_amount", "转移金额:", value = 0, min = 0, width = "100%"),
+                  selectInput(inputId = "from_account", label = "转出账户:", choices = c("工资卡", "美元卡", "买货卡", "一般户卡"), selected = "美元卡", width = "100%"),
+                  selectInput(inputId = "to_account", label = "转入账户:", choices = c("工资卡", "美元卡", "买货卡", "一般户卡"), selected = NULL, width = "100%"),
+                  fluidRow(
+                    column(12, selectInput(inputId = "transfer_category", label = "转账类别:", choices = c("采购", "税费", "杂费", "工资", "债务", "社保", "其他"), selected = "其他", width = "100%")),
+                    div(style = "margin-top: 8px; padding: 10px; background-color: #f9f9f9; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; color: #555;", textOutput("transfer_category_note", inline = TRUE))
+                  ),
+                  textAreaInput("transfer_remarks", "备注:", placeholder = "请输入备注内容", width = "100%"),
+                  imageModuleUI("image_transfer", label = "转账证据上传", label_color = "#28A745"),
+                  actionButton("record_transfer", "记录转移", icon = icon("exchange-alt"), class = "btn-success", style = "width: 100%; margin-bottom: 10px;"),
+                  fluidRow(
+                    column(6, actionButton("delete_transfer", "删除选中行", icon = icon("trash"), class = "btn-danger", style = "width: 100%;")),
+                    column(6, actionButton("reset_form_transfer", "重置", icon = icon("redo"), class = "btn-info", style = "width: 100%;"))
+                  )
+                ),
+                tabPanel(
+                  title = "汇总", icon = icon("chart-bar"),
+                  tags$h4("统计汇总", style = "color: #17A2B8; font-weight: bold; margin-bottom: 15px;"),
+                  dateRangeInput("summary_date_range", "选择统计时间范围:", start = Sys.Date() - 365, end = Sys.Date() + 1, width = "100%"),
+                  fluidRow(
+                    column(4, actionButton("summary_daily", "按天", class = "btn-primary", style = "width: 100%;")),
+                    column(4, actionButton("summary_monthly", "按月", class = "btn-success", style = "width: 100%;")),
+                    column(4, actionButton("summary_yearly", "按年", class = "btn-warning", style = "width: 100%;"))
+                  )
+                )
+              )
             ),
-            fluidRow(
-              column(12, dateInput("custom_date", "转款日期:", value = Sys.Date(), width = "100%")),
-              column(12, timeInput("custom_time", "转款时间:", value = format(Sys.time(), "%H:%M:%S"), width = "100%"))
-            ),
-            fluidRow(
-              column(12, selectInput(inputId = "transaction_category", label = "转账类别:", choices = c("采购", "税费", "杂费", "工资", "债务", "社保", "图解", "其他"), selected = "其他", width = "100%")),
-              div(style = "margin-top: 8px; padding: 10px; background-color: #f9f9f9; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; color: #555;", textOutput("transaction_category_note", inline = TRUE))
-            ),
-            textAreaInput("remarks", "备注:", placeholder = "请输入备注内容", width = "100%"),
-            imageModuleUI("image_transactions", label = "转账证据上传", label_color = "#007BFF"),
-            actionButton("record_transaction", "登记", icon = icon("save"), class = "btn-primary", style = "width: 100%; margin-bottom: 10px;"),
-            fluidRow(
-              column(6, actionButton("delete_transaction", "删除选中行", icon = icon("trash"), class = "btn-danger", style = "width: 100%;")),
-              column(6, actionButton("reset_form", "重置", icon = icon("redo"), class = "btn-info", style = "width: 100%;"))
-            )
-          ),
-          tabPanel(
-            title = "资金转移", icon = icon("exchange-alt"),
-            tags$h4("资金转移", style = "color: #28A745; font-weight: bold; margin-bottom: 15px;"),
-            numericInput("transfer_amount", "转移金额:", value = 0, min = 0, width = "100%"),
-            selectInput(inputId = "from_account", label = "转出账户:", choices = c("工资卡", "美元卡", "买货卡", "一般户卡"), selected = "美元卡", width = "100%"),
-            selectInput(inputId = "to_account", label = "转入账户:", choices = c("工资卡", "美元卡", "买货卡", "一般户卡"), selected = NULL, width = "100%"),
-            fluidRow(
-              column(12, selectInput(inputId = "transfer_category", label = "转账类别:", choices = c("采购", "税费", "杂费", "工资", "债务", "社保", "其他"), selected = "其他", width = "100%")),
-              div(style = "margin-top: 8px; padding: 10px; background-color: #f9f9f9; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; color: #555;", textOutput("transfer_category_note", inline = TRUE))
-            ),
-            textAreaInput("transfer_remarks", "备注:", placeholder = "请输入备注内容", width = "100%"),
-            imageModuleUI("image_transfer", label = "转账证据上传", label_color = "#28A745"),
-            actionButton("record_transfer", "记录转移", icon = icon("exchange-alt"), class = "btn-success", style = "width: 100%; margin-bottom: 10px;"),
-            fluidRow(
-              column(6, actionButton("delete_transfer", "删除选中行", icon = icon("trash"), class = "btn-danger", style = "width: 100%;")),
-              column(6, actionButton("reset_form_transfer", "重置", icon = icon("redo"), class = "btn-info", style = "width: 100%;"))
-            )
-          ),
-          tabPanel(
-            title = "汇总", icon = icon("chart-bar"),
-            tags$h4("统计汇总", style = "color: #17A2B8; font-weight: bold; margin-bottom: 15px;"),
-            dateRangeInput("summary_date_range", "选择统计时间范围:", start = Sys.Date() - 365, end = Sys.Date() + 1, width = "100%"),
-            fluidRow(
-              column(4, actionButton("summary_daily", "按天", class = "btn-primary", style = "width: 100%;")),
-              column(4, actionButton("summary_monthly", "按月", class = "btn-success", style = "width: 100%;")),
-              column(4, actionButton("summary_yearly", "按年", class = "btn-warning", style = "width: 100%;"))
+            div(class = "resizable-divider"),
+            div(
+              class = "main-panel",
+              tabsetPanel(
+                id = "transaction_tabs",
+                type = "pills",
+                tabPanel("账户余额总览",
+                         fluidRow(
+                           column(12, div(
+                             class = "card shadow-lg",
+                             style = "background: #1F1F1F; color: white; padding: 40px; text-align: center; border-radius: 16px; margin-top: 20px; margin-bottom: 40px; border: 2px solid #FFC107;",
+                             tags$h4("总余额", style = "font-weight: bold; font-size: 30px; margin-bottom: 20px; letter-spacing: 1.5px;"),
+                             tags$h3(textOutput("total_balance"), style = "font-size: 40px; margin-top: 0; font-weight: bold; text-shadow: 2px 2px 4px rgba(255, 193, 7, 0.8); color: #FFC107;")
+                           ))
+                         ),
+                         fluidRow(lapply(accounts, function(acc) {
+                           column(3, div(
+                             class = "card shadow-lg",
+                             style = sprintf("background: %s; color: white; padding: 20px; text-align: center; border-radius: 16px; position: relative; overflow: hidden;", acc$gradient),
+                             tags$div(
+                               style = "position: absolute; top: -10px; left: -10px; opacity: 0.3;",
+                               tags$img(src = "https://dummyimage.com/100x100/fff/000.png&text=$", width = "60px", height = "60px")
+                             ),
+                             tags$h4(acc$name, style = "font-weight: bold; margin-bottom: 10px;"),
+                             tags$h3(textOutput(acc$outputId), style = "font-size: 24px; margin-top: 0;")
+                           ))
+                         }))
+                ),
+                tabPanel(title = "买货卡(139)", value = "买货卡", DTOutput("purchase_card_table")),
+                tabPanel(title = "一般户卡(541)", value = "一般户卡", DTOutput("general_card_table")),
+                tabPanel(title = "工资卡(567)", value = "工资卡", DTOutput("salary_card_table")),
+                tabPanel(title = "美元卡(553)", value = "美元卡", DTOutput("dollar_card_table"))
+              )
             )
           )
-        )
-      ),
-      div(class = "resizable-divider"),
-      div(
-        class = "main-panel",
-        tabsetPanel(
-          id = "transaction_tabs",
-          type = "pills",
-          tabPanel("账户余额总览",
-                   fluidRow(
-                     column(12, div(
-                       class = "card shadow-lg",
-                       style = "background: #1F1F1F; color: white; padding: 40px; text-align: center; border-radius: 16px; margin-top: 20px; margin-bottom: 40px; border: 2px solid #FFC107;",
-                       tags$h4("总余额", style = "font-weight: bold; font-size: 30px; margin-bottom: 20px; letter-spacing: 1.5px;"),
-                       tags$h3(textOutput("total_balance"), style = "font-size: 40px; margin-top: 0; font-weight: bold; text-shadow: 2px 2px 4px rgba(255, 193, 7, 0.8); color: #FFC107;")
-                     ))
-                   ),
-                   fluidRow(lapply(accounts, function(acc) {
-                     column(3, div(
-                       class = "card shadow-lg",
-                       style = sprintf("background: %s; color: white; padding: 20px; text-align: center; border-radius: 16px; position: relative; overflow: hidden;", acc$gradient),
-                       tags$div(
-                         style = "position: absolute; top: -10px; left: -10px; opacity: 0.3;",
-                         tags$img(src = "https://dummyimage.com/100x100/fff/000.png&text=$", width = "60px", height = "60px")
-                       ),
-                       tags$h4(acc$name, style = "font-weight: bold; margin-bottom: 10px;"),
-                       tags$h3(textOutput(acc$outputId), style = "font-size: 24px; margin-top: 0;")
-                     ))
-                   }))
-          ),
-          tabPanel(title = "买货卡(139)", value = "买货卡", DTOutput("purchase_card_table")),
-          tabPanel(title = "一般户卡(541)", value = "一般户卡", DTOutput("general_card_table")),
-          tabPanel(title = "工资卡(567)", value = "工资卡", DTOutput("salary_card_table")),
-          tabPanel(title = "美元卡(553)", value = "美元卡", DTOutput("dollar_card_table"))
-        )
       )
     )
   ), # End of 账务管理

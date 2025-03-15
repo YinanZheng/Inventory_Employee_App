@@ -125,5 +125,5 @@ accounts <<- list(
 # 定义瑕疵和修复的状态
 defect_statuses <<- c("瑕疵", "修复", "无瑕")
 
-# 定义管理员密码
-admin_password <<- "1029"
+# 定义账务管理密码
+accounting_password <<- "1029"
