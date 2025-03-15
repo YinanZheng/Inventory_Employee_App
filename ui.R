@@ -1,4 +1,5 @@
-# Define UI
+plan(multicore)  # 让数据加载异步执行，避免阻塞 UI
+
 ui <- navbarPage(
   title = "ERP系统（员工端）",
   id = "inventory_cn",  # 设置 ID，用于监听当前选中的主页面
@@ -7,6 +8,8 @@ ui <- navbarPage(
   
   header = tagList(
     useShinyjs(),  # 启用 shinyjs 功能
+    
+    tags$script("Shiny.setInputValue('user_timezone', Intl.DateTimeFormat().resolvedOptions().timeZone, {priority: 'event'});"),
     
     # 物品表刷新（联动刷新库存表与订单表）
     actionButton(
@@ -30,7 +33,11 @@ ui <- navbarPage(
       
       # 加载提示文字
       tags$p("系统加载中，请稍后...", 
-             style = "font-size: 18px; font-weight: bold; color: #333; margin-top: 10px;")
+             style = "font-size: 18px; font-weight: bold; color: #333; margin-top: 10px;"),
+      
+      # 显示时间信息（加载完后会更新）
+      tags$p(id = "loading-time-info", 
+             style = "font-size: 16px; font-weight: bold; color: #666; margin-top: 10px;")
     ),
     
     # 库存状态浮动框 （协作页）
