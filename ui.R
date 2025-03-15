@@ -163,81 +163,38 @@ ui <- navbarPage(
     )
   ),
   
-  tabPanel(
-    "打卡", icon = icon("clock"),
-    div(class = "layout-container",
-        div(class = "sticky-sidebar",
-            tags$h4("员工打卡", style = "font-weight: bold; color: #007BFF; margin-bottom: 15px;"),
-            selectInput(
-              inputId = "employee_name",
-              label = "选择员工姓名:",
-              choices = NULL,
-              selected = NULL,
-              width = "100%"
-            ),
-            selectInput(
-              inputId = "work_type",
-              label = "选择工作类型:",
-              choices = NULL,
-              selected = NULL,
-              width = "100%"
-            ),
-            actionButton(
-              "clock_in_out_btn",
-              "打卡",
-              icon = icon("clock"),
-              class = "btn-lg btn-block",
-              style = "font-size: 20px; padding: 15px; margin-top: 20px;",
-              disabled = "disabled"
-            ),
-            div(
-              class = "card shadow-sm",
-              style = "border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: #f9f9f9; margin-top: 20px;",
-              tags$h4("打卡补录登记", style = "color: #28A745; margin-bottom: 10px;"),
-              dateInput(
-                inputId = "manual_date_in",
-                label = "工作开始日期:",
-                value = NULL,
-                width = "100%"
-              ),
-              timeInput(
-                inputId = "manual_time_in",
-                label = "工作开始时间:",
-                value = strptime("09:00", "%H:%M"),
-                width = "100%"
-              ),
-              dateInput(
-                inputId = "manual_date_out",
-                label = "工作结束日期:",
-                value = NULL,
-                width = "100%"
-              ),
-              timeInput(
-                inputId = "manual_time_out",
-                label = "工作结束时间:",
-                value = strptime("18:00", "%H:%M"),
-                width = "100%"
-              ),
-              numericInput(
-                inputId = "manual_sales_amount",
-                label = "销售额 (仅直播工作类型有效):",
-                value = 0,
-                min = 0,
-                step = 0.01,
-                width = "100%"
-              ),
-              actionButton("submit_manual_clock", "提交补录", icon = icon("save"), class = "btn-success", 
-                           style = "width: 100%; margin-top: 10px;")
-            )
-        ),
-        div(class = "resizable-divider"),
-        div(class = "main-panel",
-            tags$h4("当前工作时长", style = "color: #007BFF; font-weight: bold; margin-bottom: 15px;"),
-            uiOutput("timer_display"),
-            tags$h4("今日工作记录", style = "color: #007BFF; font-weight: bold; margin-top: 20px; margin-bottom: 15px;"),
-            DTOutput("today_work_records_table")
-        )
-    )
+  tabPanel("打卡", icon = icon("clock"),
+           div(class = "layout-container",
+               div(class = "sticky-sidebar",
+                   tags$h4("员工打卡", style = "font-weight: bold; color: #007BFF; margin-bottom: 15px;"),
+                   selectInput("employee_name", "选择员工姓名:", choices = NULL, selected = NULL, width = "100%"),
+                   selectInput("work_type", "选择工作类型:", choices = NULL, selected = NULL, width = "100%"),
+                   actionButton("clock_in_out_btn", "打卡", icon = icon("clock"), class = "btn-lg btn-block",
+                                style = "font-size: 20px; padding: 15px; margin-top: 20px;", disabled = "disabled"),
+                   div(class = "card shadow-sm",
+                       style = "border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: #f9f9f9; margin-top: 20px;",
+                       tags$h4("打卡补录登记", style = "color: #28A745; margin-bottom: 10px;"),
+                       fluidRow(
+                         column(6, dateInput("manual_date_in", "工作开始日期:", value = NULL, width = "100%")),
+                         column(6, timeInput("manual_time_in", "工作开始时间:", value = strptime("09:00", "%H:%M"), width = "100%"))
+                       ),
+                       fluidRow(
+                         column(6, dateInput("manual_date_out", "工作结束日期:", value = NULL, width = "100%")),
+                         column(6, timeInput("manual_time_out", "工作结束时间:", value = strptime("18:00", "%H:%M"), width = "100%"))
+                       ),
+                       numericInput("manual_sales_amount", "销售额 (仅直播工作类型有效):", value = 0, min = 0, step = 0.01, width = "100%"),
+                       actionButton("submit_manual_clock", "提交补录", icon = icon("save"), class = "btn-success", 
+                                    style = "width: 100%; margin-top: 10px;")
+                   )
+               ),
+               div(class = "resizable-divider"),
+               div(class = "main-panel",
+                   tags$h4("当前工作时长", style = "color: #007BFF; font-weight: bold; margin-bottom: 15px;"),
+                   uiOutput("timer_display"),
+                   tags$h4("今日工作记录", style = "color: #007BFF; font-weight: bold; margin-top: 20px; margin-bottom: 15px;"),
+                   DTOutput("today_work_records_table")
+               )
+           )
   ), # End of "打卡”
   
   tabPanel(
