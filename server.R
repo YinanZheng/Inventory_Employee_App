@@ -1069,10 +1069,10 @@ server <- function(input, output, session) {
   
   # 渲染当天工作记录表格（仅显示当前选择的员工）
   output$today_work_records_table <- renderDT({
-    req(clock_records(), input$employee_name, user_timezone())  # 确保时区已获取
+    req(clock_records(), input$employee_name, input$user_timezone)  # 确保时区已获取
     
     # 获取用户时区
-    user_tz <- user_timezone()  # 使用全局存储的用户时区
+    user_tz <- input$user_timezone
     
     # 获取当天日期（用户时区）
     today <- as.Date(with_tz(Sys.time(), user_tz))  # 确保当天日期基于用户时区
