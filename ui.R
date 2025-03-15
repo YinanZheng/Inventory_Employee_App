@@ -342,8 +342,11 @@ ui <- navbarPage(
     "账务管理", icon = icon("wallet"),
     div(
       id = "password_section",
-      passwordInput("accounting_password", "请输入密码解锁账务管理", width = "100%"),
-      actionButton("unlock_button", "解锁", icon = icon("unlock"), class = "btn-primary", style = "width: 100%; margin-top: 10px;")
+      style = "width: 320px; margin: 80px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; box-shadow: 2px 2px 10px rgba(0,0,0,0.1); text-align: center;",
+      tags$h3("账务管理登录", style = "margin-bottom: 20px;"),
+      passwordInput("accounting_password", "请输入密码", width = "100%"),
+      actionButton("unlock_button", "解锁", icon = icon("unlock"), class = "btn-primary", style = "width: 100%; margin-top: 10px;"),
+      tags$p(id = "error_message", style = "color: red; margin-top: 10px; font-size: 14px;", textOutput("password_error"))
     ),
     
     hidden(
