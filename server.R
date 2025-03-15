@@ -6,48 +6,19 @@ server <- function(input, output, session) {
   ##############################################################################
   
   # 显示加载动画
-  observeEvent(input$user_timezone, {
-    req(input$user_timezone)  # 确保用户时区已获取
-    
-    # 显示加载界面
-    shinyjs::show("loading-screen")
-    
-    # 启动异步任务
-    future({
-      Sys.sleep(1)  # 模拟数据加载
-      utc_time <- Sys.time()
-      
-      # 用户时区（必须从 input 里取出来，不能直接放到 future 里）
-      user_tz <- input$user_timezone
-      
-      # 转换时间
-      user_time <- format(as.POSIXct(utc_time, tz = "UTC"), tz = user_tz, usetz = TRUE)
-      
-      # 返回时间信息
-      list(utc_time = format(utc_time, "%Y-%m-%d %H:%M:%S UTC"),
-           user_tz = user_tz,
-           user_time = user_time)
-      
-    }) %...>% (function(result) {
-      # 生成时间信息
-      time_info <- paste0(
-        "📌 服务器 UTC 时间: ", result$utc_time, "<br>",
-        "🌎 你的时区: ", result$user_tz, "<br>",
-        "⏰ 本地时间: ", result$user_time
-      )
-      
-      # 更新加载提示信息
-      shinyjs::html("loading-time-info", time_info)
-      
-      # 1秒后淡出加载界面
-      shinyjs::delay(1000, shinyjs::runjs("$('#loading-screen').fadeOut(1000);"))
-      
-      # 额外显示通知
-      showNotification(time_info, type = "message", duration = 10)
-    }) %...!% (function(error) {
-      showNotification(paste("❌ 加载失败:", error$message), type = "error")
+  shinyjs::show("loading-screen")  # 显示加载界面
+  
+  future({
+    utc_time <- Sys.time()
+    user_tz <- input$user_timezone
+    user_time <- format(as.POSIXct(utc_time, tz = "UTC"), tz = user_tz, usetz = TRUE)
+    list(utc_time = format(utc_time, "%Y-%m-%d %H:%M:%S UTC"),
+         user_tz = user_tz,
+         user_time = user_time)
+  }) %>% 
+    promises::then(function(result) {
+      shinyjs::runjs("$('#loading-screen').fadeOut(1000);")  # 1秒淡出加载界面
     })
-  })
   
   ##############################################################################
   
