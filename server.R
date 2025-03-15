@@ -18,6 +18,29 @@ server <- function(input, output, session) {
   
   ##############################################################################
   
+  observeEvent(input$user_timezone, {
+    req(input$user_timezone)  # 确保 input$user_timezone 已经获取
+    
+    # 服务器 UTC 时间
+    utc_time <- Sys.time()
+    
+    # 获取用户时区
+    user_tz <- input$user_timezone
+    
+    # 转换 UTC 时间到用户本地时间
+    user_time <- format(as.POSIXct(utc_time, tz = "UTC"), tz = user_tz, usetz = TRUE)
+    
+    # 生成时间信息
+    time_info <- paste0(
+      "📌 服务器 UTC 时间: ", format(utc_time, "%Y-%m-%d %H:%M:%S UTC"), "<br>",
+      "🌎 你的时区: ", user_tz, "<br>",
+      "⏰ 本地时间: ", user_time
+    )
+    
+    # 显示通知
+    showNotification(time_info, type = "message", duration = 10)
+  })
+  
   # Database
   con <- db_connection()
   
