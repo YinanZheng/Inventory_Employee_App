@@ -1113,11 +1113,9 @@ server <- function(input, output, session) {
     
     # 如果没有记录，显示提示信息
     if (nrow(today_records) == 0) {
-      return(datatable(
-        data.frame(Message = "今天暂无工作记录"),
-        options = table_default_options,
-        rownames = FALSE
-      ))
+      output$today_work_records_table <- renderUI(tags$p("今天暂无工作记录", 
+                                                         style = "text-align: center; font-size: 16px; font-weight: bold; color: #D32F2F;"))
+      return()
     }
     
     # 返回数据表
